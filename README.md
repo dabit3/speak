@@ -6,6 +6,12 @@
 
 <p align="center">Your voice, right where you type.</p>
 
+<p align="center">
+  <a href="https://devin.ai">
+    <img src="Resources/BuiltByDevin.png" alt="Built by Devin" width="164" height="38">
+  </a>
+</p>
+
 Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-Live-Transcribe. Hold <kbd>fn</kbd> to dictate. Release it to paste your words into the active app.
 
 ## For users
