@@ -15,7 +15,7 @@ The packaging script does not rebuild or sign the app again. It creates `build/S
 
 Keep only the latest verified installer and its checksum when cleanup is approved. After packaging a new version, ask for confirmation to delete specific older Speak DMGs and checksums. Eject only the older Speak images approved for cleanup. Leave source files, the installed app, the current app bundle, credentials, and unrelated disk images untouched.
 
-The build script signs the app locally by default. Set `CODE_SIGN_IDENTITY` to use an installed signing identity. Release distribution also requires notarization through Apple.
+The build script uses `scripts/signing-identity.sh` to select the only valid installed Developer ID Application certificate. If none or several exist, it stops and requires `CODE_SIGN_IDENTITY`. Certificate-signed builds enable the hardened runtime and a secure timestamp. Never silently fall back to an ad-hoc signature because its identity changes on each rebuild. `CODE_SIGN_IDENTITY=-` is an explicit temporary-development override and prints a permission warning. Keep the signing identity consistent across app updates. Switching from an ad-hoc build to a certificate-signed build requires a one-time permission approval. Release distribution also requires notarization through Apple, which signing alone does not perform.
 
 `Sources/SpeakCore/SpeakLogo.swift` defines the shared microphone-and-text-cursor mark. The interface, menu bar, icon generator, and SVG export use that path. The build script compiles `scripts/icon.swift` with the shared logo file and generates the app icon, `Resources/Speak.png`, and `Resources/SpeakMark.svg`. Keep the waveform bars only for the live audio meter, not for branding.
 

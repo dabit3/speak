@@ -23,7 +23,7 @@ You need an Apple Silicon Mac running macOS 14 or later, internet access, and an
 3. In Preferences, add your OpenAI API key.
 4. Allow Microphone and Accessibility access.
 
-OpenAI API usage is billed separately from ChatGPT subscriptions. The installer is locally signed, not notarized by Apple.
+OpenAI API usage is billed separately from ChatGPT subscriptions. The installer uses Developer ID signing but is not yet notarized by Apple.
 
 ### Shortcuts
 
@@ -45,7 +45,9 @@ OpenAI’s API data policies still apply.
 
 ## For developers
 
-Building from source requires Xcode with Swift 6 or later.
+Building from source requires Xcode with Swift 6 or later. The build selects your installed Developer ID certificate. If several certificates exist, set `CODE_SIGN_IDENTITY` to choose one.
+
+For temporary local builds, use `CODE_SIGN_IDENTITY=- bash scripts/build.sh`. This changes the app identity on each rebuild and can break existing Accessibility approval.
 
 ```sh
 bash scripts/build.sh
