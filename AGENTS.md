@@ -2,7 +2,7 @@
 
 Speak is a native macOS 14+ app for dictation. It uses SwiftUI, AppKit, AVAudioEngine, and OpenAI GPT-Live-Transcribe. The Swift package has no external dependencies.
 
-Use sans-serif fonts throughout the interface. Never introduce serif typography. Use the system default or rounded design, with monospaced digits only where needed for stable timers. Keep the dashboard free of the removed introductory tagline and status dot.
+Use sans-serif fonts throughout the interface. Never introduce serif typography. Use the system default or rounded design, with monospaced digits only where needed for stable timers. Keep the dashboard free of the removed introductory tagline and status dot. Keep the Preferences Quit button in the fixed footer, outside the scrolling content. Use normal app termination so microphone, shortcuts, and clipboard cleanup still run.
 
 Run these commands from the project root:
 
@@ -12,6 +12,8 @@ Run these commands from the project root:
 - Run `bash scripts/package-dmg.sh` to package the existing signed app as a DMG.
 
 The packaging script does not rebuild or sign the app again. It creates `build/Speak-<version>-<architecture>.dmg` and a SHA-256 checksum file. It refuses to overwrite an existing installer. The DMG contains Speak and an Applications shortcut. The script verifies the image, mounts it read-only, validates the bundled signature, and compares the executable with the source. Temporary packaging files stay under the hidden `.build/` directory. App bundles stay under `build/artifacts.noindex/` so Spotlight does not index development copies. The DMG also disables Spotlight indexing.
+
+Keep only the latest verified installer and its checksum when cleanup is approved. After packaging a new version, ask for confirmation to delete specific older Speak DMGs and checksums. Eject only the older Speak images approved for cleanup. Leave source files, the installed app, the current app bundle, credentials, and unrelated disk images untouched.
 
 The build script signs the app locally by default. Set `CODE_SIGN_IDENTITY` to use an installed signing identity. Release distribution also requires notarization through Apple.
 

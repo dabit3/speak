@@ -33,6 +33,13 @@ final class BrandingTests: XCTestCase {
         XCTAssertFalse(source.contains("YOUR VOICE, WITHOUT THE FRICTION"))
     }
 
+    func testPreferencesProvidesAQuitButton() throws {
+        let source = try String(contentsOf: root.appendingPathComponent("Sources/Speak/MainView.swift"), encoding: .utf8)
+        XCTAssertTrue(source.contains("if model.selectedTab == 1"))
+        XCTAssertTrue(source.contains("Button(\"Quit\") { NSApp.terminate(nil) }"))
+        XCTAssertTrue(source.contains("accessibilityIdentifier(\"quit-speak\")"))
+    }
+
     func testKeychainNamespaceMatchesAppIdentity() throws {
         let identifier = try XCTUnwrap(bundleInfo()["CFBundleIdentifier"] as? String)
         let preferences = try String(contentsOf: root.appendingPathComponent("Sources/Speak/Preferences.swift"), encoding: .utf8)

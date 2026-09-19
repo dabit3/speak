@@ -29,7 +29,14 @@ struct MainView: View {
                 Image(systemName: "lock.shield").font(.system(size: 11))
                 Text("No audio saved. No transcript history on disk.")
                 Spacer()
-                Text("MADE FOR YOUR TRAIN OF THOUGHT").font(.system(size: 8, weight: .medium)).tracking(1.2)
+                if model.selectedTab == 1 {
+                    Button("Quit") { NSApp.terminate(nil) }
+                        .buttonStyle(SubtleButton())
+                        .help("Quit Speak")
+                        .accessibilityIdentifier("quit-speak")
+                } else {
+                    Text("MADE FOR YOUR TRAIN OF THOUGHT").font(.system(size: 8, weight: .medium)).tracking(1.2)
+                }
             }
             .font(.system(size: 10))
             .foregroundStyle(Color.muted)
