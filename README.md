@@ -8,26 +8,18 @@
 
 Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-Live-Transcribe. Hold <kbd>fn</kbd> to dictate. Release it to paste your words into the active app.
 
-## Get started
+## For users
 
-You need macOS 14 or later, Xcode with Swift 6 or later, and an OpenAI API key.
+You need an Apple Silicon Mac running macOS 14 or later, internet access, and an OpenAI API key. You do not need Xcode.
 
-Build and open the app:
+1. Open the Speak `.dmg` installer.
+2. Drag Speak into Applications. Open Speak.
+3. In Preferences, add your OpenAI API key.
+4. Allow Microphone and Accessibility access.
 
-```sh
-bash scripts/build.sh
-open build/artifacts.noindex/Speak.app
-```
+OpenAI API usage is billed separately from ChatGPT subscriptions. The installer is locally signed, not notarized by Apple.
 
-In Preferences:
-
-1. Add your OpenAI API key.
-2. Allow microphone access.
-3. Allow Accessibility access for shortcuts and automatic paste.
-
-OpenAI API usage is billed separately from ChatGPT subscriptions.
-
-## Shortcuts
+### Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
@@ -35,22 +27,21 @@ OpenAI API usage is billed separately from ChatGPT subscriptions.
 | <kbd>fn</kbd> + <kbd>space</kbd> | Start or stop hands-free dictation. |
 | <kbd>esc</kbd> | Cancel without pasting. |
 
-You can also choose Control + Option in Preferences. Add names and technical terms to your vocabulary for recognition hints.
+You can choose Control + Option or add vocabulary hints in Preferences.
 
-## Privacy
+### Privacy
 
 Speak stores your API key in macOS Keychain. Audio streams directly to OpenAI during dictation. Speak keeps the last transcript in memory but saves no audio or transcript history to disk.
 
 OpenAI’s API data policies still apply.
 
-## Build an installer
+## For developers
 
-After building the app, create a DMG:
+Building from source requires Xcode with Swift 6 or later.
 
 ```sh
-bash scripts/package-dmg.sh
+bash scripts/build.sh
+open build/artifacts.noindex/Speak.app
 ```
 
-Open the DMG in `build/`. Drag Speak into Applications. The installer is locally signed, not notarized by Apple.
-
-Run the tests with `swift test`.
+Run tests with `swift test`. After building the app, create an installer with `bash scripts/package-dmg.sh`. The script writes the DMG to `build/`.
