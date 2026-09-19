@@ -2,7 +2,7 @@
 
 Speak is a native macOS 14+ app for dictation. It uses SwiftUI, AppKit, AVAudioEngine, and OpenAI GPT-Live-Transcribe. The Swift package has no external dependencies.
 
-Use sans-serif fonts throughout the interface. Never introduce serif typography. Use the system default or rounded design, with monospaced digits only where needed for stable timers. Keep the dashboard free of the removed introductory tagline and status dot. Keep the Preferences Quit button in the fixed footer, outside the scrolling content. Use normal app termination so microphone, shortcuts, and clipboard cleanup still run.
+Use sans-serif fonts throughout the interface. Never introduce serif typography. Use the system default or rounded design, with monospaced digits only where needed for stable timers. Keep the dashboard free of the removed introductory tagline and status dot. Keep the Preferences Quit button in the fixed footer, outside the scrolling content. Separate that footer with a top border and keep native vertical scroll indicators enabled. Use normal app termination so microphone, shortcuts, and clipboard cleanup still run.
 
 Run these commands from the project root:
 

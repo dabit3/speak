@@ -40,6 +40,16 @@ final class BrandingTests: XCTestCase {
         XCTAssertTrue(source.contains("accessibilityIdentifier(\"quit-speak\")"))
     }
 
+    func testPreferencesSeparatesItsFooterAndShowsScrollIndicators() throws {
+        let main = try String(contentsOf: root.appendingPathComponent("Sources/Speak/MainView.swift"), encoding: .utf8)
+        let preferences = try String(contentsOf: root.appendingPathComponent("Sources/Speak/PreferencesView.swift"), encoding: .utf8)
+        XCTAssertTrue(main.contains(".overlay(alignment: .top)"))
+        XCTAssertTrue(main.contains(".fill(Color.line)"))
+        XCTAssertTrue(main.contains(".allowsHitTesting(false)"))
+        XCTAssertTrue(preferences.contains(".scrollIndicators(.visible, axes: .vertical)"))
+        XCTAssertFalse(preferences.contains(".scrollIndicators(.hidden)"))
+    }
+
     func testKeychainNamespaceMatchesAppIdentity() throws {
         let identifier = try XCTUnwrap(bundleInfo()["CFBundleIdentifier"] as? String)
         let preferences = try String(contentsOf: root.appendingPathComponent("Sources/Speak/Preferences.swift"), encoding: .utf8)

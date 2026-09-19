@@ -42,6 +42,16 @@ struct MainView: View {
             .foregroundStyle(Color.muted)
             .padding(.horizontal, 36)
             .padding(.vertical, 19)
+            .background(Color.canvas)
+            .overlay(alignment: .top) {
+                if model.selectedTab == 1 {
+                    Rectangle()
+                        .fill(Color.line)
+                        .frame(height: 1)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
         }
         .frame(width: 760, height: 640)
         .foregroundStyle(Color.ink)

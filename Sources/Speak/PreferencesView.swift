@@ -111,7 +111,7 @@ struct PreferencesView: View {
             .padding(.top, 6)
             .padding(.bottom, 12)
         }
-        .scrollIndicators(.hidden)
+        .scrollIndicators(.visible, axes: .vertical)
         .disabled(model.phase.isBusy)
     }
 
