@@ -11,17 +11,21 @@ final class Preferences: ObservableObject {
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     @Published var shortcut: String { didSet { defaults.set(shortcut, forKey: "shortcut") } }
     @Published var showPill: Bool { didSet { defaults.set(showPill, forKey: "showPill") } }
+    @Published var smartCorrectionEnabled: Bool { didSet { defaults.set(smartCorrectionEnabled, forKey: "smartCorrectionEnabled") } }
+    @Published var showLiveTranscript: Bool { didSet { defaults.set(showLiveTranscript, forKey: "showLiveTranscript") } }
     @Published var hasAPIKey = false
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, checkKeychain: Bool = true) {
         self.defaults = defaults
         language = defaults.string(forKey: "language") ?? "en"
         delay = TranscriptionDelay(rawValue: defaults.string(forKey: "delay") ?? "low") ?? .low
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         shortcut = defaults.string(forKey: "shortcut") ?? "fn"
         showPill = defaults.object(forKey: "showPill") as? Bool ?? true
-        hasAPIKey = KeychainStore.hasKey
+        smartCorrectionEnabled = defaults.object(forKey: "smartCorrectionEnabled") as? Bool ?? true
+        showLiveTranscript = defaults.object(forKey: "showLiveTranscript") as? Bool ?? true
+        hasAPIKey = checkKeychain && KeychainStore.hasKey
     }
 
     var shortcutLabel: String { shortcut == "fn" ? "fn" : "⌃ ⌥" }

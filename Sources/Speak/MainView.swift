@@ -64,17 +64,10 @@ struct DashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Circle().fill(model.ready ? Color(red: 0.38, green: 0.55, blue: 0.39) : Color.accent).frame(width: 5, height: 5)
-                Text(model.ready ? "A LITTLE LESS TYPING" : "YOUR VOICE, WITHOUT THE FRICTION")
-                    .font(.system(size: 9, weight: .medium)).tracking(1.7)
-            }
-            .foregroundStyle(Color.muted)
-            .padding(.top, 14)
             Text("Think it. Say it. Done.")
-                .font(.system(size: 43, weight: .regular, design: .serif))
-                .tracking(-1.8)
-                .padding(.top, 13)
+                .font(.system(size: 40, weight: .semibold, design: .default))
+                .tracking(-1.4)
+                .padding(.top, 28)
             Text("Your words, wherever you’re writing.")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.muted)

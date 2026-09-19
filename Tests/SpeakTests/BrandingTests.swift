@@ -17,6 +17,22 @@ final class BrandingTests: XCTestCase {
         XCTAssertTrue((info["NSMicrophoneUsageDescription"] as? String)?.hasPrefix("Speak ") == true)
     }
 
+    func testInterfaceUsesOnlySansSerifFontDesigns() throws {
+        let directory = root.appendingPathComponent("Sources/Speak")
+        let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        for file in files where file.pathExtension == "swift" {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            XCTAssertFalse(source.contains("design: .serif"), file.lastPathComponent)
+            XCTAssertFalse(source.contains("design: .monospaced"), file.lastPathComponent)
+        }
+    }
+
+    func testDashboardOmitsTheEyebrowTagline() throws {
+        let source = try String(contentsOf: root.appendingPathComponent("Sources/Speak/MainView.swift"), encoding: .utf8)
+        XCTAssertFalse(source.contains("A LITTLE LESS TYPING"))
+        XCTAssertFalse(source.contains("YOUR VOICE, WITHOUT THE FRICTION"))
+    }
+
     func testKeychainNamespaceMatchesAppIdentity() throws {
         let identifier = try XCTUnwrap(bundleInfo()["CFBundleIdentifier"] as? String)
         let preferences = try String(contentsOf: root.appendingPathComponent("Sources/Speak/Preferences.swift"), encoding: .utf8)

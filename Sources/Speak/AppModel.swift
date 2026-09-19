@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var partial = ""
     @Published var lastTranscript = ""
+    @Published var lastOriginalTranscript = ""
     @Published var message = ""
     @Published var level: Float = 0
     @Published var elapsed: TimeInterval = 0
@@ -30,6 +31,7 @@ final class AppModel: ObservableObject {
     var showWindow: (() -> Void)?
     private var capture: AudioCapture?
     private var transcriber: RealtimeTranscriber?
+    private var correction: SmartCorrection?
     private var task: Task<Void, Never>?
     private var timer: Task<Void, Never>?
     private var dismissTask: Task<Void, Never>?
@@ -43,12 +45,14 @@ final class AppModel: ObservableObject {
     init(
         preferences: Preferences? = nil,
         insertion: TextInsertion? = nil,
-        captureTarget: (() -> InsertionTarget?)? = nil
+        captureTarget: (() -> InsertionTarget?)? = nil,
+        correction: SmartCorrection? = nil
     ) {
         let preferences = preferences ?? Preferences()
         self.preferences = preferences
         self.insertion = insertion ?? TextInsertion()
         self.captureTarget = captureTarget ?? InsertionTarget.capture
+        self.correction = correction
         shortcut.isActive = { [weak self] in self?.phase.isBusy ?? false }
         shortcut.onCancel = { [weak self] in self?.cancel() }
         shortcut.onPaste = { [weak self] in self?.pasteLast() }
@@ -67,9 +71,17 @@ final class AppModel: ObservableObject {
             self?.shortcut.usesFunctionKey = value == "fn"
             self?.shortcut.reset()
         }.store(in: &subscriptions)
+        preferences.$smartCorrectionEnabled.sink { [weak self] enabled in
+            if !enabled {
+                self?.correction?.cancel()
+                self?.correction = nil
+            }
+        }.store(in: &subscriptions)
         preferences.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
 
+    var showsLiveTranscript: Bool { preferences.showLiveTranscript && phase.isBusy && !partial.isEmpty }
+    var pillHeight: CGFloat { phase == .failure || showsLiveTranscript ? 190 : 70 }
     var ready: Bool { preferences.hasAPIKey && microphoneGranted && accessibilityGranted && shortcutAvailable }
     var timeLabel: String { String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60) }
     var phaseLabel: String {
@@ -168,6 +180,11 @@ final class AppModel: ObservableObject {
             let transcriber = RealtimeTranscriber(socket: OpenAIWebSocket(apiKey: key))
             self.transcriber = transcriber
             let configuration = preferences.configuration
+            correction?.cancel()
+            correction = preferences.smartCorrectionEnabled ? SmartCorrection(
+                service: OpenAITranscriptCorrector(apiKey: key),
+                context: CorrectionContext(language: configuration.language, keywords: configuration.keywords, application: target?.name ?? "")
+            ) : nil
             timer = Task { [weak self] in
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
@@ -183,10 +200,10 @@ final class AppModel: ObservableObject {
                         if self.phase == .connecting { self.phase = .listening }
                     } onPartial: { [weak self] text in
                         guard self?.takeID == id else { return }
-                        self?.partial = text
+                        self?.receivePartial(text)
                     }
                     guard let self, self.takeID == id, !Task.isCancelled else { return }
-                    self.complete(final)
+                    await self.processTranscript(final)
                 } catch is CancellationError {
                 } catch {
                     guard let self, self.takeID == id else { return }
@@ -196,15 +213,37 @@ final class AppModel: ObservableObject {
         } catch { fail(error.localizedDescription) }
     }
 
+    func receivePartial(_ text: String) {
+        guard phase.isBusy else { return }
+        partial = text
+        if preferences.smartCorrectionEnabled { correction?.preview(text) }
+    }
+
+    func processTranscript(_ text: String) async {
+        guard phase == .finishing else { return }
+        let id = takeID
+        let result: String
+        if preferences.smartCorrectionEnabled, let correction {
+            result = await correction.finish(text)
+        } else {
+            correction?.cancel()
+            result = text
+        }
+        guard takeID == id, phase == .finishing, !Task.isCancelled else { return }
+        correction = nil
+        complete(result, original: text)
+    }
+
     func finish() {
         guard phase.isRecording else { return }
+        releasedAt = Date()
         shortcut.reset()
         target = captureTarget() ?? target
-        releasedAt = Date()
         elapsed = Date().timeIntervalSince(startedAt)
         phase = .finishing
         level = 0
         timer?.cancel()
+        correction?.prepareLatest()
         transcriber?.finishSoon()
         capture?.stop()
         capture = nil
@@ -212,6 +251,8 @@ final class AppModel: ObservableObject {
 
     func cancel(resetShortcut: Bool = true) {
         if resetShortcut { shortcut.reset() }
+        correction?.cancel()
+        correction = nil
         guard phase.isBusy else { return }
         takeID = UUID()
         capture?.stop()
@@ -236,6 +277,12 @@ final class AppModel: ObservableObject {
         if !phase.isBusy { message = "Copied to clipboard"; phase = .success; dismissLater() }
     }
 
+    func copyOriginal() {
+        guard !lastOriginalTranscript.isEmpty else { return }
+        insertion.copy(lastOriginalTranscript)
+        if !phase.isBusy { message = "Original copied to clipboard"; phase = .success; dismissLater() }
+    }
+
     func pasteLast() {
         guard !lastTranscript.isEmpty, !phase.isBusy else { return }
         let target = captureTarget()
@@ -255,7 +302,7 @@ final class AppModel: ObservableObject {
         insertion.restoreClipboard()
     }
 
-    func complete(_ text: String) {
+    func complete(_ text: String, original: String? = nil) {
         guard phase == .finishing else { return }
         capture?.stop()
         capture = nil
@@ -265,12 +312,15 @@ final class AppModel: ObservableObject {
         if let releasedAt { lastLatency = Int(Date().timeIntervalSince(releasedAt) * 1000) }
         let result = insertion.insert(text, into: target)
         lastTranscript = text
+        lastOriginalTranscript = original ?? text
         message = result == .pasted ? "Sent to \(target?.name ?? "your app")" : "Copied · press ⌘V to paste"
         phase = .success
         dismissLater()
     }
 
     private func fail(_ text: String) {
+        correction?.cancel()
+        correction = nil
         capture?.stop()
         capture = nil
         transcriber?.cancel()

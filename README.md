@@ -27,11 +27,13 @@ OpenAI API usage is billed separately from ChatGPT subscriptions. The installer 
 | <kbd>fn</kbd> + <kbd>space</kbd> | Start or stop hands-free dictation. |
 | <kbd>esc</kbd> | Cancel without pasting. |
 
-You can choose Control + Option or add vocabulary hints in Preferences.
+You can choose Control + Option or add vocabulary hints in Preferences. Turn off “Show live text above pill” to hide the transcript while recording.
+
+Smart correction is on by default and uses GPT-4.1 nano to fix likely misheard words. It allows up to 350 ms of extra wait, then falls back to the original text. Choose “Copy original dictation” from the menu bar to recover the unedited transcript. Turn off “Smart correction” in Preferences for unedited output.
 
 ### Privacy
 
-Speak stores your API key in macOS Keychain. Audio streams directly to OpenAI during dictation. Speak keeps the last transcript in memory but saves no audio or transcript history to disk.
+Speak stores your API key in macOS Keychain. Audio streams directly to OpenAI during dictation. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI, with extra text API charges. Speak keeps only the last original and corrected transcripts in memory, with no recordings or history saved to disk.
 
 OpenAI’s API data policies still apply.
 

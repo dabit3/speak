@@ -65,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleDictation() { model.toggle() }
     @objc private func pasteLast() { model.pasteLast() }
     @objc private func copyLast() { model.copyLast() }
+    @objc private func copyOriginal() { model.copyOriginal() }
     @objc private func openPreferences() { model.selectedTab = 1; openWindow() }
     @objc private func quit() { NSApp.terminate(nil) }
 
@@ -79,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recordItem = add("Start dictation", action: #selector(toggleDictation), to: menu)
         add("Paste last dictation", action: #selector(pasteLast), to: menu)
         add("Copy last dictation", action: #selector(copyLast), to: menu)
+        add("Copy original dictation", action: #selector(copyOriginal), to: menu)
         menu.addItem(.separator())
         add("Preferences…", action: #selector(openPreferences), to: menu)
         add("Quit Speak", action: #selector(quit), to: menu)
@@ -120,12 +122,13 @@ enum PreviewRenderer {
               CommandLine.arguments.count > index + 1 else { return }
         let directory = URL(fileURLWithPath: CommandLine.arguments[index + 1])
         let defaults = UserDefaults(suiteName: "local.speak.preview")!
-        let preferences = Preferences(defaults: defaults)
+        let preferences = Preferences(defaults: defaults, checkKeychain: false)
         preferences.hasAPIKey = false
         let model = AppModel(preferences: preferences)
         save(MainView(model: model), to: directory.appendingPathComponent("setup.png"))
         model.selectedTab = 1
         save(MainView(model: model), to: directory.appendingPathComponent("preferences.png"))
+        save(PreferencesView(model: model, preferences: preferences).frame(width: 760, height: 1500).background(Color.canvas).preferredColorScheme(.light), to: directory.appendingPathComponent("preferences-full.png"))
         model.selectedTab = 0
         preferences.hasAPIKey = true
         model.microphoneGranted = true
@@ -136,7 +139,11 @@ enum PreviewRenderer {
         model.level = 0.65
         model.elapsed = 8
         model.partial = "Let’s keep this simple. A small app that turns your thoughts into words."
-        save(PillView(model: model).frame(width: 430, height: 190), to: directory.appendingPathComponent("recording.png"))
+        preferences.showLiveTranscript = true
+        save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording.png"))
+        preferences.showLiveTranscript = false
+        save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording-hidden-text.png"))
+        preferences.showLiveTranscript = true
     }
 
     private static func save<V: View>(_ view: V, to url: URL) {

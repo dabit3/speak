@@ -2,6 +2,8 @@
 
 Speak is a native macOS 14+ app for dictation. It uses SwiftUI, AppKit, AVAudioEngine, and OpenAI GPT-Live-Transcribe. The Swift package has no external dependencies.
 
+Use sans-serif fonts throughout the interface. Never introduce serif typography. Use the system default or rounded design, with monospaced digits only where needed for stable timers. Keep the dashboard free of the removed introductory tagline and status dot.
+
 Run these commands from the project root:
 
 - Run `swift test` for the automated tests.
@@ -21,7 +23,11 @@ To render native previews, create `build/previews` and run `.build/debug/Speak -
 
 Use `gpt-live-transcribe`, not the conversational `gpt-live-1` model or the older Whisper models. Stream mono 24 kHz PCM16 audio over a WebSocket, a persistent network connection. Disable automatic turn detection and commit audio after the user releases the shortcut. Match final transcripts to the committed item before pasting.
 
-Keep API keys in macOS Keychain. Never put keys in source files, logs, or command arguments. Do not save audio or transcript history to disk. Keep only the last transcript in memory for copy and paste recovery.
+Keep API keys in macOS Keychain. Never put keys in source files, logs, or command arguments. Do not save audio or transcript history to disk. Keep only the last original and corrected transcripts in memory for copy and paste recovery.
+
+Smart correction defaults to enabled. `SmartCorrection` debounces partial text, caps speculative requests, and reuses results only for identical source text. It waits at most 350 ms for final correction before falling back to the original. `OpenAITranscriptCorrector` uses `gpt-4.1-nano-2025-04-14`, predicted output, and `store: false` through Chat Completions. Transcript text, vocabulary, language, and the active app name are sent to OpenAI. No surrounding text or clipboard context is collected. Use `CorrectionPolicy` to reject unsafe edits. Its checks are conservative heuristics, not a guarantee that an edit preserves meaning. Mock tests do not measure live model quality or response times.
+
+`showLiveTranscript` defaults to true and is independent of `showPill` and `smartCorrectionEnabled`. Hidden live text must not stop audio capture, correction, or automatic paste. The compact pill must retain its recording controls and error messages.
 
 The app needs microphone and Accessibility permissions for live dictation. Users enter their own API key in Preferences. A ChatGPT subscription does not include OpenAI API usage.
 

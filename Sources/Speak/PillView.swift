@@ -16,7 +16,7 @@ struct PillView: View {
                     .padding(.horizontal, 18).padding(.vertical, 12)
                     .background(Color(white: 0.13), in: RoundedRectangle(cornerRadius: 14))
                     .frame(maxWidth: 370)
-            } else if !model.partial.isEmpty && model.phase.isBusy {
+            } else if model.showsLiveTranscript {
                 Text(model.partial)
                     .font(.system(size: 13)).foregroundStyle(.white.opacity(0.9))
                     .multilineTextAlignment(.center).lineLimit(3)
@@ -37,7 +37,7 @@ struct PillView: View {
                     } else {
                         Circle().fill(Color(red: 1, green: 0.73, blue: 0.48)).frame(width: 5, height: 5)
                         AudioBars(level: model.level)
-                        Text(model.timeLabel).font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
+                        Text(model.timeLabel).font(.system(size: 10, design: .default)).monospacedDigit().foregroundStyle(.white.opacity(0.55))
                     }
                     Button { model.finish() } label: {
                         Image(systemName: "stop.fill").font(.system(size: 10)).foregroundStyle(.white)
@@ -103,6 +103,12 @@ final class PillController {
         model.preferences.$showPill.sink { [weak self] _ in
             Task { @MainActor in self?.update(phase: model.phase) }
         }.store(in: &subscriptions)
+        model.preferences.$showLiveTranscript.sink { [weak self] _ in
+            Task { @MainActor in self?.update(phase: model.phase) }
+        }.store(in: &subscriptions)
+        model.$partial.map { !$0.isEmpty }.removeDuplicates().sink { [weak self] _ in
+            Task { @MainActor in self?.update(phase: model.phase) }
+        }.store(in: &subscriptions)
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.update(phase: model.phase) }
         }
@@ -113,7 +119,7 @@ final class PillController {
         guard model.preferences.showPill || phase != .idle else { panel.orderOut(nil); return }
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let screen else { return }
-        let height: CGFloat = phase == .idle || phase == .success ? 70 : 190
+        let height = model.pillHeight
         let width: CGFloat = phase == .idle ? 150 : 430
         panel.setFrame(NSRect(x: screen.visibleFrame.midX - width / 2, y: screen.visibleFrame.minY + 5, width: width, height: height), display: true)
         panel.orderFrontRegardless()

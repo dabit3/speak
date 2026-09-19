@@ -12,7 +12,7 @@ struct PreferencesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Just the essentials.").font(.system(size: 29, weight: .regular, design: .serif)).tracking(-0.8)
+                    Text("Just the essentials.").font(.system(size: 29, weight: .semibold, design: .default)).tracking(-0.8)
                     Text("A few small things. Then get back to your thoughts.").font(.system(size: 12)).foregroundStyle(Color.muted)
                 }
                 section("CONNECTION") {
@@ -28,7 +28,7 @@ struct PreferencesView: View {
                     }
                     HStack(spacing: 9) {
                         SecureField(preferences.hasAPIKey ? "Enter a new key to replace it" : "Paste your API key", text: $apiKey)
-                            .textFieldStyle(.plain).font(.system(size: 12, design: .monospaced))
+                            .textFieldStyle(.plain).font(.system(size: 12, design: .default))
                             .padding(11).background(Color.canvas, in: RoundedRectangle(cornerRadius: 8))
                             .onSubmit(saveKey)
                         Button("Save key", action: saveKey).buttonStyle(PrimaryButton()).disabled(apiKey.isEmpty)
@@ -54,6 +54,10 @@ struct PreferencesView: View {
                     }
                 }
                 section("DICTATION") {
+                    toggleRow("Smart correction", detail: "Fix likely misheard words from the context of your dictation.", isOn: $preferences.smartCorrectionEnabled)
+                    Text("Uses GPT-4.1 nano and adds text API charges. Waits up to 350 ms for correction, then pastes the original. Copy the original from the menu bar at any time.")
+                        .font(.system(size: 10)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+                    Divider()
                     settingRow("Shortcut", detail: "Double-tap for hands-free, or add Space.") {
                         Picker("Shortcut", selection: $preferences.shortcut) {
                             Text("fn").tag("fn")
@@ -80,18 +84,16 @@ struct PreferencesView: View {
                         }.labelsHidden().frame(width: 190)
                     }
                     Divider()
-                    settingRow("Live text", detail: "Faster partial text, or more context for accuracy.") {
+                    settingRow("Transcription speed", detail: "Faster partial text, or more context for accuracy.") {
                         Picker("Live text delay", selection: $preferences.delay) {
                             ForEach(TranscriptionDelay.allCases) { Text($0.title).tag($0) }
                         }.labelsHidden().frame(width: 190)
                     }
+                }
+                section("APPEARANCE") {
+                    toggleRow("Show live text above pill", detail: "Turn off to keep only the recording controls and audio level.", isOn: $preferences.showLiveTranscript)
                     Divider()
-                    Toggle(isOn: $preferences.showPill) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Show the floating pill").font(.system(size: 12, weight: .medium))
-                            Text("A quiet reminder at the bottom of your screen.").font(.system(size: 10)).foregroundStyle(Color.muted)
-                        }
-                    }.toggleStyle(.switch).controlSize(.small)
+                    toggleRow("Show the floating pill", detail: "Keep the pill visible when you are not recording.", isOn: $preferences.showPill)
                 }
                 section("YOUR VOCABULARY") {
                     Text("Names, products, and words you use. Separated by commas.").font(.system(size: 11)).foregroundStyle(Color.muted)
@@ -102,7 +104,7 @@ struct PreferencesView: View {
                             if value.count > 4000 { preferences.vocabulary = String(value.prefix(4000)) }
                         }
                 }
-                Text("Audio is streamed to OpenAI only during dictation. Speak keeps your last transcript in memory until you quit; it does not save recordings or transcripts to disk. OpenAI’s API data policies apply. A ChatGPT subscription does not cover API usage.")
+                Text("Audio goes directly to OpenAI. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI. Only the last original and corrected transcripts stay in memory. No recordings or transcript history are saved to disk. OpenAI’s API data policies and separate API billing apply.")
                     .font(.system(size: 10)).lineSpacing(4).foregroundStyle(Color.muted)
             }
             .padding(.horizontal, 44)
@@ -121,6 +123,16 @@ struct PreferencesView: View {
                 .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 13))
                 .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.line))
         }
+    }
+
+    private func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 12, weight: .medium))
+                Text(detail).font(.system(size: 10)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }.toggleStyle(.switch).controlSize(.small)
     }
 
     private func permissionRow(_ title: String, detail: String, symbol: String, granted: Bool, action: @escaping () -> Void) -> some View {
