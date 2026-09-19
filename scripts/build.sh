@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIGURATION="${CONFIGURATION:-release}"
+APP="$ROOT/build/artifacts.noindex/Speak.app"
+swift build --package-path "$ROOT" -c "$CONFIGURATION"
+BIN="$(swift build --package-path "$ROOT" -c "$CONFIGURATION" --show-bin-path)"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$ROOT/build/AppIcon.iconset"
+cp "$BIN/Speak" "$APP/Contents/MacOS/Speak"
+cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+swiftc "$ROOT/Sources/SpeakCore/SpeakLogo.swift" "$ROOT/scripts/icon.swift" -o "$ROOT/.build/speak-icon-generator"
+"$ROOT/.build/speak-icon-generator" "$ROOT/build/AppIcon.iconset" "$ROOT/Resources"
+iconutil -c icns "$ROOT/build/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+codesign --force --sign "${CODE_SIGN_IDENTITY:--}" --entitlements "$ROOT/Resources/Speak.entitlements" "$APP"
+printf '\nBuilt %s\nLaunch with: open "%s"\n' "$APP" "$APP"
