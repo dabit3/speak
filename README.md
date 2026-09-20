@@ -23,7 +23,7 @@ You need an Apple Silicon Mac running macOS 14 or later, internet access, and an
 3. In Preferences, add your OpenAI API key.
 4. Allow Microphone and Accessibility access.
 
-OpenAI API usage is billed separately from ChatGPT subscriptions. The installer uses Developer ID signing but is not yet notarized by Apple.
+OpenAI API usage is billed separately from ChatGPT subscriptions. The published installer is Developer ID signed and notarized by Apple.
 
 ### Shortcuts
 
@@ -55,3 +55,5 @@ open build/artifacts.noindex/Speak.app
 ```
 
 Run tests with `swift test`. After building the app, create an installer with `bash scripts/package-dmg.sh`. The script writes the DMG to `build/`.
+
+New builds need their own Apple notarization before public distribution. Submit the DMG with `notarytool`, attach its approval with `stapler`, and regenerate the checksum. Packaging alone does not notarize a release.
