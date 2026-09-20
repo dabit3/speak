@@ -7,10 +7,15 @@
 <p align="center">Your voice, right where you type.</p>
 
 <p align="center">
+  <a href="https://github.com/dabit3/speak/releases/latest/download/Speak-1.1.4-arm64.dmg">
+    <img src="Resources/DownloadForMac.png" alt="Download Speak for macOS" width="208" height="38">
+  </a>
   <a href="https://devin.ai">
     <img src="Resources/BuiltByDevin.png" alt="Built by Devin" width="164" height="38">
   </a>
 </p>
+
+<p align="center"><sub>macOS 14 or later on Apple Silicon · <a href="https://github.com/dabit3/speak/releases/latest">Release notes and checksum</a></sub></p>
 
 Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-Live-Transcribe. Hold <kbd>fn</kbd> to dictate. Release it to paste your words into the active app.
 
@@ -18,7 +23,7 @@ Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-
 
 You need an Apple Silicon Mac running macOS 14 or later, internet access, and an OpenAI API key. You do not need Xcode.
 
-1. Open the Speak `.dmg` installer.
+1. Click the download button above and open the Speak `.dmg` installer.
 2. Drag Speak into Applications. Open Speak.
 3. In Preferences, add your OpenAI API key.
 4. Allow Microphone and Accessibility access.
@@ -56,4 +61,6 @@ open build/artifacts.noindex/Speak.app
 
 Run tests with `swift test`. After building the app, create an installer with `bash scripts/package-dmg.sh`. The script writes the DMG to `build/`.
 
-New builds need their own Apple notarization before public distribution. Submit the DMG with `notarytool`, attach its approval with `stapler`, and regenerate the checksum. Packaging alone does not notarize a release.
+New builds need their own Apple notarization before public distribution. Submit the DMG with `notarytool`, attach its approval with `stapler`, and regenerate the checksum. Packaging alone does not notarize a release. After publishing a GitHub release, update the DMG filename in the download link at the top of this README.
+
+The download button image comes from `scripts/download-button.swift`. Regenerate it with `swiftc Sources/SpeakCore/SpeakLogo.swift scripts/download-button.swift -o .build/speak-download-button && .build/speak-download-button "$PWD/Resources/DownloadForMac.png"`.
