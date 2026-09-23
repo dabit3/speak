@@ -58,6 +58,42 @@ final class CorrectionPolicyTests: XCTestCase {
         XCTAssertTrue(CorrectionPolicy.isEligible("Please merge this pool request."))
     }
 
+    func testAcceptsNumberAndPunctuationFormatting() {
+        XCTAssertEqual(CorrectionPolicy.accept("We have twenty five users and two options.", candidate: "We have 25 users and 2 options."), "We have 25 users and 2 options.")
+        XCTAssertEqual(CorrectionPolicy.accept("Hey Sam comma can you check the logs question mark", candidate: "Hey Sam, can you check the logs?"), "Hey Sam, can you check the logs?")
+        XCTAssertEqual(CorrectionPolicy.accept("Meet me at 3 30 PM on Friday.", candidate: "Meet me at 3:30 PM on Friday."), "Meet me at 3:30 PM on Friday.")
+        XCTAssertEqual(CorrectionPolicy.accept("I do not think we can ship today.", candidate: "I don't think we can ship today."), "I don't think we can ship today.")
+    }
+
+    func testAcceptsSpokenSelfCorrections() {
+        XCTAssertEqual(CorrectionPolicy.accept("Let's meet at 3, no wait, 4:30 PM on Tuesday.", candidate: "Let's meet at 4:30 PM on Tuesday."), "Let's meet at 4:30 PM on Tuesday.")
+        XCTAssertEqual(CorrectionPolicy.accept("Send the invoice to John, I mean Sarah.", candidate: "Send the invoice to Sarah."), "Send the invoice to Sarah.")
+        XCTAssertEqual(CorrectionPolicy.accept("The deploy failed. Scratch that. The deploy is still running.", candidate: "The deploy is still running."), "The deploy is still running.")
+        XCTAssertEqual(CorrectionPolicy.accept("Ship it Monday, actually Tuesday.", candidate: "Ship it Tuesday."), "Ship it Tuesday.")
+    }
+
+    func testSelfCorrectionsCannotIntroduceNewValues() {
+        XCTAssertNil(CorrectionPolicy.accept("Let's meet at 3, no wait, 4 PM.", candidate: "Let's meet at 5 PM."))
+        XCTAssertNil(CorrectionPolicy.accept("Send the invoice to John, I mean Sarah.", candidate: "Send the invoice to Nathan."))
+        XCTAssertNil(CorrectionPolicy.accept("Ship it today, no wait, tomorrow.", candidate: "Don't ship it tomorrow."))
+        XCTAssertNil(CorrectionPolicy.accept("Ship it today, no wait, tomorrow.", candidate: "Ship it tomorrow and write a summary of the release notes for everyone."))
+    }
+
+    func testRemovalWithoutACueIsStillRejected() {
+        XCTAssertNil(CorrectionPolicy.accept("Deploy 3 services and 4 workers today.", candidate: "Deploy 4 workers today."))
+        XCTAssertNil(CorrectionPolicy.accept("Send it to John and Sarah today.", candidate: "Send it to Sarah today."))
+        XCTAssertNil(CorrectionPolicy.accept("Please review the pull request and merge it into main after the tests pass.", candidate: "Please merge it."))
+    }
+
+    func testDetectsSelfCorrectionCues() {
+        for text in ["Let's meet at 3, no wait, 4.", "Send it to John, I mean Sarah.", "Use Postgres, actually SQLite.", "Delete the file. Scratch that.", "Book the 9 AM flight, sorry, the 10 AM flight.", "Tuesday or rather Wednesday."] {
+            XCTAssertTrue(CorrectionPolicy.revisesItself(text), text)
+        }
+        for text in ["I mean, it's fine.", "There is no way this works.", "Sorry for the delay.", "Hi, sorry for the delay.", "Actually I agree.", "Wait for the build."] {
+            XCTAssertFalse(CorrectionPolicy.revisesItself(text), text)
+        }
+    }
+
     func testAllowsUnicodeTextAndUnchangedOutput() {
         let text = "Bonjour, pouvez-vous relire ce message ?"
         XCTAssertEqual(CorrectionPolicy.accept(text, candidate: text), text)

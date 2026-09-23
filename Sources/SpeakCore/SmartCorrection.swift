@@ -3,10 +3,12 @@ import Foundation
 @MainActor
 public final class SmartCorrection {
     public nonisolated static let maximumAddedWait: Duration = .milliseconds(350)
+    public nonisolated static let maximumRevisionWait: Duration = .seconds(1)
     private let service: any TranscriptCorrecting
     private let context: CorrectionContext
     private let debounce: Duration
     private let finalWait: Duration
+    private let revisionWait: Duration
     private let maximumPreviews: Int
     private var previewCount = 0
     private var latest = ""
@@ -22,12 +24,14 @@ public final class SmartCorrection {
         context: CorrectionContext = CorrectionContext(),
         debounce: Duration = .milliseconds(300),
         finalWait: Duration = SmartCorrection.maximumAddedWait,
+        revisionWait: Duration = SmartCorrection.maximumRevisionWait,
         maximumPreviews: Int = 4
     ) {
         self.service = service
         self.context = context
         self.debounce = debounce
         self.finalWait = finalWait
+        self.revisionWait = revisionWait
         self.maximumPreviews = maximumPreviews
     }
 
@@ -67,8 +71,9 @@ public final class SmartCorrection {
             pair.continuation.yield(result)
             pair.continuation.finish()
         }
-        let deadline = Task { [finalWait] in
-            do { try await Task.sleep(for: finalWait) } catch { return }
+        let wait = CorrectionPolicy.revisesItself(text) ? max(finalWait, revisionWait) : finalWait
+        let deadline = Task {
+            do { try await Task.sleep(for: wait) } catch { return }
             pair.continuation.yield(text)
             pair.continuation.finish()
             work.cancel()

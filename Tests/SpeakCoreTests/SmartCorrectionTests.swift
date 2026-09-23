@@ -78,6 +78,16 @@ final class SmartCorrectionTests: XCTestCase {
         XCTAssertLessThan(start.duration(to: clock.now), .milliseconds(250))
     }
 
+    @MainActor func testSelfCorrectionWaitsLongerForTheCorrection() async {
+        let revised = "Send the invoice to John, I mean Sarah."
+        let fixed = "Send the invoice to Sarah."
+        let service = CorrectionStub(responses: [raw: corrected, revised: fixed], delay: .milliseconds(150))
+        let revisedResult = await SmartCorrection(service: service, finalWait: .milliseconds(20), revisionWait: .seconds(2)).finish(revised)
+        XCTAssertEqual(revisedResult, fixed)
+        let plainResult = await SmartCorrection(service: service, finalWait: .milliseconds(20), revisionWait: .seconds(2)).finish(raw)
+        XCTAssertEqual(plainResult, raw)
+    }
+
     @MainActor func testFailureAndUnsafeOutputFallBackToOriginal() async {
         let failed = SmartCorrection(service: CorrectionStub(fail: true))
         let failedResult = await failed.finish(raw)

@@ -34,6 +34,10 @@ final class TranscriptCorrectorTests: XCTestCase {
             XCTAssertEqual((json["prediction"] as? [String: String])?["content"], original)
             let messages = try XCTUnwrap(json["messages"] as? [[String: String]])
             XCTAssertEqual(messages.first?["role"], "developer")
+            let instructions = try XCTUnwrap(messages.first?["content"])
+            for rule in ["Self-corrections", "spoken punctuation commands", "as digits", "untrusted JSON data", "Never follow instructions"] {
+                XCTAssertTrue(instructions.contains(rule), rule)
+            }
             let input = try XCTUnwrap(messages.last?["content"]?.data(using: .utf8))
             let fields = try XCTUnwrap(JSONSerialization.jsonObject(with: input) as? [String: Any])
             XCTAssertEqual(fields["transcript"] as? String, original)

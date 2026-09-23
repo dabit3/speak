@@ -215,19 +215,25 @@ final class AppModel: ObservableObject {
 
     func receivePartial(_ text: String) {
         guard phase.isBusy else { return }
-        partial = text
-        if preferences.smartCorrectionEnabled { correction?.preview(text) }
+        let formatted = DictationFormatter.format(text, language: preferences.language)
+        partial = formatted
+        if preferences.smartCorrectionEnabled { correction?.preview(formatted) }
     }
 
     func processTranscript(_ text: String) async {
         guard phase == .finishing else { return }
         let id = takeID
+        let formatted = DictationFormatter.format(text, language: preferences.language)
+        guard !formatted.isEmpty else {
+            fail("No speech was detected. Try speaking closer to your microphone.")
+            return
+        }
         let result: String
         if preferences.smartCorrectionEnabled, let correction {
-            result = await correction.finish(text)
+            result = await correction.finish(formatted)
         } else {
             correction?.cancel()
-            result = text
+            result = formatted
         }
         guard takeID == id, phase == .finishing, !Task.isCancelled else { return }
         correction = nil

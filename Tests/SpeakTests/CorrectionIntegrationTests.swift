@@ -86,6 +86,34 @@ final class CorrectionIntegrationTests: XCTestCase {
         XCTAssertEqual(fixture.pasteboard.string(forType: .string), fixed)
     }
 
+    @MainActor func testSpokenFormattingAppliesWithoutSmartCorrection() async {
+        let fixture = makeFixture()
+        defer { fixture.model.shutdown(); fixture.pasteboard.releaseGlobally(); fixture.defaults.removePersistentDomain(forName: fixture.suite) }
+        fixture.model.preferences.smartCorrectionEnabled = false
+        fixture.model.phase = .listening
+        fixture.model.receivePartial("Um, we have twenty five users")
+        XCTAssertEqual(fixture.model.partial, "We have 25 users")
+        fixture.model.finish()
+        let spoken = "Um, we have twenty five users comma right question mark"
+        await fixture.model.processTranscript(spoken)
+        let calls = await fixture.service.calls
+        XCTAssertEqual(calls, 0)
+        XCTAssertEqual(fixture.model.lastTranscript, "We have 25 users, right?")
+        XCTAssertEqual(fixture.model.lastOriginalTranscript, spoken)
+        XCTAssertEqual(fixture.pasteboard.string(forType: .string), "We have 25 users, right?")
+    }
+
+    @MainActor func testFillerOnlyTranscriptIsNotPasted() async {
+        let fixture = makeFixture()
+        defer { fixture.model.shutdown(); fixture.pasteboard.releaseGlobally(); fixture.defaults.removePersistentDomain(forName: fixture.suite) }
+        fixture.model.phase = .listening
+        fixture.model.finish()
+        await fixture.model.processTranscript("Um.")
+        XCTAssertEqual(fixture.model.phase, .failure)
+        XCTAssertTrue(fixture.model.lastTranscript.isEmpty)
+        XCTAssertNil(fixture.pasteboard.string(forType: .string))
+    }
+
     @MainActor private func makeFixture(service: AppCorrectionStub = AppCorrectionStub()) -> (model: AppModel, service: AppCorrectionStub, pasteboard: NSPasteboard, defaults: UserDefaults, suite: String) {
         let suite = "SpeakCorrectionTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

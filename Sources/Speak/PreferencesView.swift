@@ -54,8 +54,8 @@ struct PreferencesView: View {
                     }
                 }
                 section("DICTATION") {
-                    toggleRow("Smart correction", detail: "Fix likely misheard words from the context of your dictation.", isOn: $preferences.smartCorrectionEnabled)
-                    Text("Uses GPT-4.1 nano and adds text API charges. Waits up to 350 ms for correction, then pastes the original. Copy the original from the menu bar at any time.")
+                    toggleRow("Smart correction", detail: "Fix misheard words, punctuation, and mid-sentence corrections like “3, no wait, 4.”", isOn: $preferences.smartCorrectionEnabled)
+                    Text("Uses GPT-4.1 nano and adds text API charges. Waits up to 350 ms for correction, or 1 second when you correct yourself, then pastes the formatted text. Copy the original from the menu bar at any time.")
                         .font(.system(size: 10)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
                     Divider()
                     settingRow("Shortcut", detail: "Double-tap for hands-free, or add Space.") {
@@ -82,6 +82,12 @@ struct PreferencesView: View {
                             Text("Hindi").tag("hi")
                             Text("Arabic").tag("ar")
                         }.labelsHidden().frame(width: 190)
+                    }
+                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Spoken formatting").font(.system(size: 12, weight: .medium))
+                        Text("In English, say “comma,” “period,” “question mark,” “new line,” or “new paragraph.” Numbers, times, dates, prices, and email addresses are written the usual way, and “um” and “uh” are removed. This runs on your Mac.")
+                            .font(.system(size: 10)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
                     }
                     Divider()
                     settingRow("Transcription speed", detail: "Faster partial text, or more context for accuracy.") {

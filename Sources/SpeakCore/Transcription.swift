@@ -1,7 +1,7 @@
 import Foundation
 
 public enum TranscriptionDelay: String, CaseIterable, Identifiable {
-    case minimal, low, medium, high
+    case minimal, low, medium, high, xhigh
     public var id: String { rawValue }
     public var title: String {
         switch self {
@@ -9,6 +9,7 @@ public enum TranscriptionDelay: String, CaseIterable, Identifiable {
         case .low: return "Fast"
         case .medium: return "Balanced"
         case .high: return "More context"
+        case .xhigh: return "Most context"
         }
     }
 }
@@ -16,6 +17,7 @@ public enum TranscriptionDelay: String, CaseIterable, Identifiable {
 public struct TranscriptionConfiguration {
     public static let endpoint = URL(string: "wss://api.openai.com/v1/realtime?intent=transcription")!
     public static let model = "gpt-live-transcribe"
+    public static let prompt = "One person dictating text to type into a Mac app, such as a message, email, document, note, or code editor. Speech can include names, technical terms, numbers, dates, times, prices, email addresses, and spoken punctuation such as comma, period, question mark, or new line."
     public let language: String
     public let delay: TranscriptionDelay
     public let vocabulary: String
@@ -35,7 +37,7 @@ public struct TranscriptionConfiguration {
     }
 
     public func sessionMessage() throws -> Data {
-        var transcription: [String: Any] = ["model": Self.model, "delay": delay.rawValue]
+        var transcription: [String: Any] = ["model": Self.model, "delay": delay.rawValue, "prompt": Self.prompt]
         if !language.isEmpty { transcription["languages"] = [language] }
         if !keywords.isEmpty { transcription["keywords"] = keywords }
         return try JSONSerialization.data(withJSONObject: [

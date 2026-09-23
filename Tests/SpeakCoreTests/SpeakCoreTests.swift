@@ -66,6 +66,16 @@ final class TranscriptionTests: XCTestCase {
         XCTAssertEqual(transcription["languages"] as? [String], ["en"])
         XCTAssertNil(transcription["language"])
         XCTAssertEqual(transcription["keywords"] as? [String], ["Speak", "PostgreSQL", "Nader"])
+        let prompt = try XCTUnwrap(transcription["prompt"] as? String)
+        XCTAssertEqual(prompt, TranscriptionConfiguration.prompt)
+        XCTAssertFalse(prompt.contains("<") || prompt.contains(">") || prompt.contains("\n"))
+    }
+
+    func testMostContextDelayIsAvailable() throws {
+        let config = TranscriptionConfiguration(language: "en", delay: .xhigh, vocabulary: "")
+        let string = String(decoding: try config.sessionMessage(), as: UTF8.self)
+        XCTAssertTrue(string.contains("\"delay\":\"xhigh\""))
+        XCTAssertEqual(TranscriptionDelay.allCases.last?.title, "Most context")
     }
 
     func testAutoLanguageDoesNotSendAnEmptyHint() throws {
