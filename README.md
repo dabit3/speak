@@ -14,7 +14,7 @@
 
 Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-Live-Transcribe. Hold <kbd>fn</kbd> to dictate. Release it to paste your words into the active app.
 
-[Download for macOS](https://github.com/dabit3/speak/releases/latest/download/Speak-1.2.0-arm64.dmg)
+[Download for macOS](https://github.com/dabit3/speak/releases/latest/download/Speak-1.2.1-arm64.dmg)
 
 ## For users
 
