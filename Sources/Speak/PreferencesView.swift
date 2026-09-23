@@ -100,6 +100,12 @@ struct PreferencesView: View {
                     toggleRow("Show live text above pill", detail: "Turn off to keep only the recording controls and audio level.", isOn: $preferences.showLiveTranscript)
                     Divider()
                     toggleRow("Show the floating pill", detail: "Keep the pill visible when you are not recording.", isOn: $preferences.showPill)
+                    Divider()
+                    settingRow("Pill position", detail: "Show the pill at the bottom, or halfway up the left or right edge.") {
+                        Picker("Pill position", selection: $preferences.pillPosition) {
+                            ForEach(PillPosition.allCases) { Text($0.title).tag($0) }
+                        }.labelsHidden().frame(width: 190)
+                    }
                 }
                 section("YOUR VOCABULARY") {
                     Text("Names, products, and words you use. Separated by commas.").font(.system(size: 11)).foregroundStyle(Color.muted)

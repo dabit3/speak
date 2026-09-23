@@ -4,6 +4,18 @@ import Security
 import LocalAuthentication
 import SpeakCore
 
+enum PillPosition: String, CaseIterable, Identifiable {
+    case bottom, left, right
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .bottom: return "Bottom"
+        case .left: return "Left"
+        case .right: return "Right"
+        }
+    }
+}
+
 @MainActor
 final class Preferences: ObservableObject {
     @Published var language: String { didSet { defaults.set(language, forKey: "language") } }
@@ -11,6 +23,7 @@ final class Preferences: ObservableObject {
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     @Published var shortcut: String { didSet { defaults.set(shortcut, forKey: "shortcut") } }
     @Published var showPill: Bool { didSet { defaults.set(showPill, forKey: "showPill") } }
+    @Published var pillPosition: PillPosition { didSet { defaults.set(pillPosition.rawValue, forKey: "pillPosition") } }
     @Published var smartCorrectionEnabled: Bool { didSet { defaults.set(smartCorrectionEnabled, forKey: "smartCorrectionEnabled") } }
     @Published var showLiveTranscript: Bool { didSet { defaults.set(showLiveTranscript, forKey: "showLiveTranscript") } }
     @Published var hasAPIKey = false
@@ -23,6 +36,7 @@ final class Preferences: ObservableObject {
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         shortcut = defaults.string(forKey: "shortcut") ?? "fn"
         showPill = defaults.object(forKey: "showPill") as? Bool ?? true
+        pillPosition = PillPosition(rawValue: defaults.string(forKey: "pillPosition") ?? "") ?? .bottom
         smartCorrectionEnabled = defaults.object(forKey: "smartCorrectionEnabled") as? Bool ?? true
         showLiveTranscript = defaults.object(forKey: "showLiveTranscript") as? Bool ?? true
         hasAPIKey = checkKeychain && KeychainStore.hasKey

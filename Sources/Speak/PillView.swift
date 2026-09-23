@@ -7,7 +7,8 @@ struct PillView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 10) {
+        let alignment = model.preferences.pillPosition.alignment
+        VStack(alignment: alignment.horizontal, spacing: 10) {
             Spacer(minLength: 0)
             if model.phase == .failure {
                 Text(model.message)
@@ -69,9 +70,19 @@ struct PillView: View {
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: model.phase)
         .preferredColorScheme(.dark)
+    }
+}
+
+extension PillPosition {
+    var alignment: Alignment {
+        switch self {
+        case .bottom: return .bottom
+        case .left: return .bottomLeading
+        case .right: return .bottomTrailing
+        }
     }
 }
 
@@ -106,6 +117,9 @@ final class PillController {
         model.preferences.$showLiveTranscript.sink { [weak self] _ in
             Task { @MainActor in self?.update(phase: model.phase) }
         }.store(in: &subscriptions)
+        model.preferences.$pillPosition.sink { [weak self] _ in
+            Task { @MainActor in self?.update(phase: model.phase) }
+        }.store(in: &subscriptions)
         model.$partial.map { !$0.isEmpty }.removeDuplicates().sink { [weak self] _ in
             Task { @MainActor in self?.update(phase: model.phase) }
         }.store(in: &subscriptions)
@@ -119,9 +133,17 @@ final class PillController {
         guard model.preferences.showPill || phase != .idle else { panel.orderOut(nil); return }
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let screen else { return }
-        let height = model.pillHeight
         let width: CGFloat = phase == .idle ? 150 : 430
-        panel.setFrame(NSRect(x: screen.visibleFrame.midX - width / 2, y: screen.visibleFrame.minY + 5, width: width, height: height), display: true)
+        panel.setFrame(Self.frame(for: model.preferences.pillPosition, in: screen.visibleFrame, width: width, height: model.pillHeight), display: true)
         panel.orderFrontRegardless()
+    }
+
+    static func frame(for position: PillPosition, in visible: NSRect, width: CGFloat, height: CGFloat) -> NSRect {
+        let middle = visible.midY - AppModel.compactPillHeight / 2
+        switch position {
+        case .bottom: return NSRect(x: visible.midX - width / 2, y: visible.minY + 5, width: width, height: height)
+        case .left: return NSRect(x: visible.minX + 5, y: middle, width: width, height: height)
+        case .right: return NSRect(x: visible.maxX - width - 5, y: middle, width: width, height: height)
+        }
     }
 }

@@ -35,7 +35,7 @@ OpenAI API usage is billed separately from ChatGPT subscriptions. The published 
 | <kbd>fn</kbd> + <kbd>space</kbd> | Start or stop hands-free dictation. |
 | <kbd>esc</kbd> | Cancel without pasting. |
 
-You can choose Control + Option or add vocabulary hints in Preferences. Turn off “Show live text above pill” to hide the transcript while recording.
+In Preferences, you can choose Control + Option, add vocabulary hints, or move the pill from the bottom of the screen to the left or right edge. Turn off “Show live text above pill” to hide the transcript while recording.
 
 ### Formatting and corrections
 

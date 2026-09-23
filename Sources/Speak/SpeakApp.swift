@@ -144,6 +144,11 @@ enum PreviewRenderer {
         preferences.showLiveTranscript = false
         save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording-hidden-text.png"))
         preferences.showLiveTranscript = true
+        for position in [PillPosition.left, .right] {
+            preferences.pillPosition = position
+            save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording-\(position.rawValue).png"))
+        }
+        preferences.pillPosition = .bottom
     }
 
     private static func save<V: View>(_ view: V, to url: URL) {
