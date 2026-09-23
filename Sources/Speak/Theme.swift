@@ -75,25 +75,44 @@ struct SubtleButton: ButtonStyle {
     }
 }
 
+struct Spinner: View {
+    var size: CGFloat = 12
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { context in
+            Circle()
+                .trim(from: 0.1, to: 0.78)
+                .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                .rotationEffect(.degrees(reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.9) / 0.9 * 360))
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("Finishing")
+    }
+}
+
 struct AudioBars: View {
     let level: Float
     var active = true
     var color: Color = .white
+    var axis: Axis = .horizontal
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let horizontal = axis == .horizontal
         TimelineView(.animation(minimumInterval: 0.065, paused: !active || reduceMotion)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 3) {
-                ForEach(0..<15) { index in
+            (horizontal ? AnyLayout(HStackLayout(spacing: 3)) : AnyLayout(VStackLayout(spacing: 3))) {
+                ForEach(0..<(horizontal ? 15 : 11), id: \.self) { index in
                     let wave = (sin(time * 9 + Double(index) * 0.8) + 1) / 2
                     let amplitude = active ? Double(level) : 0
+                    let length = 3 + amplitude * (7 + wave * 19)
                     Capsule()
                         .fill(color.opacity(active ? 0.95 : 0.4))
-                        .frame(width: 3, height: 3 + amplitude * (7 + wave * 19))
+                        .frame(width: horizontal ? 3 : length, height: horizontal ? length : 3)
                 }
             }
-            .frame(width: 87, height: 30)
+            .frame(width: horizontal ? 87 : 30, height: horizontal ? 30 : 63)
         }
         .accessibilityLabel(active ? "Microphone audio level" : "Microphone off")
     }

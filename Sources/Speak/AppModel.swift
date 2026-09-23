@@ -81,8 +81,7 @@ final class AppModel: ObservableObject {
     }
 
     var showsLiveTranscript: Bool { preferences.showLiveTranscript && phase.isBusy && !partial.isEmpty }
-    static let compactPillHeight: CGFloat = 70
-    var pillHeight: CGFloat { phase == .failure || showsLiveTranscript ? 190 : Self.compactPillHeight }
+    var pillHeight: CGFloat { phase == .failure || showsLiveTranscript ? 190 : 70 }
     var ready: Bool { preferences.hasAPIKey && microphoneGranted && accessibilityGranted && shortcutAvailable }
     var timeLabel: String { String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60) }
     var phaseLabel: String {

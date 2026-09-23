@@ -101,7 +101,7 @@ struct PreferencesView: View {
                     Divider()
                     toggleRow("Show the floating pill", detail: "Keep the pill visible when you are not recording.", isOn: $preferences.showPill)
                     Divider()
-                    settingRow("Pill position", detail: "Show the pill at the bottom, or halfway up the left or right edge.") {
+                    settingRow("Pill position", detail: "Bottom, or upright halfway up the left or right edge.") {
                         Picker("Pill position", selection: $preferences.pillPosition) {
                             ForEach(PillPosition.allCases) { Text($0.title).tag($0) }
                         }.labelsHidden().frame(width: 190)

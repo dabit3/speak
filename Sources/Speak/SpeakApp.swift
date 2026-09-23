@@ -144,11 +144,20 @@ enum PreviewRenderer {
         preferences.showLiveTranscript = false
         save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording-hidden-text.png"))
         preferences.showLiveTranscript = true
-        for position in [PillPosition.left, .right] {
+        let states: [(AppModel.Phase, PillPosition, String)] = [
+            (.finishing, .bottom, "finishing"), (.listening, .left, "recording-left"), (.listening, .right, "recording-right"),
+            (.finishing, .left, "finishing-left"), (.success, .right, "success-right"), (.failure, .left, "failure-left"), (.idle, .right, "idle-right")
+        ]
+        for (phase, position, name) in states {
+            model.phase = phase
+            model.message = phase == .failure ? "Your microphone changed during dictation. Please start a new recording." : "Sent to Notes"
             preferences.pillPosition = position
-            save(PillView(model: model).frame(width: 430, height: model.pillHeight), to: directory.appendingPathComponent("recording-\(position.rawValue).png"))
+            let size = PillController.size(for: position, idle: phase == .idle, height: model.pillHeight)
+            save(PillView(model: model).frame(width: size.width, height: size.height), to: directory.appendingPathComponent("\(name).png"))
         }
         preferences.pillPosition = .bottom
+        model.phase = .listening
+        model.message = ""
     }
 
     private static func save<V: View>(_ view: V, to url: URL) {

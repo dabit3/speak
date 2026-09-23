@@ -39,14 +39,20 @@ final class PreferencesTests: XCTestCase {
 
     @MainActor func testPillFrameFollowsTheChosenEdge() async {
         let visible = NSRect(x: 100, y: 50, width: 1000, height: 800)
-        XCTAssertEqual(PillController.frame(for: .bottom, in: visible, width: 430, height: 70), NSRect(x: 385, y: 55, width: 430, height: 70))
-        XCTAssertEqual(PillController.frame(for: .left, in: visible, width: 430, height: 70), NSRect(x: 105, y: 415, width: 430, height: 70))
-        XCTAssertEqual(PillController.frame(for: .right, in: visible, width: 430, height: 70), NSRect(x: 665, y: 415, width: 430, height: 70))
-        let idle = PillController.frame(for: .right, in: visible, width: 150, height: 70)
-        let expanded = PillController.frame(for: .right, in: visible, width: 430, height: 190)
-        XCTAssertEqual(idle.maxX, expanded.maxX)
-        XCTAssertEqual(idle.minY, expanded.minY)
-        XCTAssertEqual(PillController.frame(for: .left, in: visible, width: 150, height: 70).minX, 105)
+        func frame(_ position: PillPosition, idle: Bool, height: CGFloat = 70) -> NSRect {
+            PillController.frame(for: position, in: visible, size: PillController.size(for: position, idle: idle, height: height))
+        }
+        XCTAssertEqual(frame(.bottom, idle: false), NSRect(x: 385, y: 55, width: 430, height: 70))
+        XCTAssertEqual(frame(.bottom, idle: true), NSRect(x: 525, y: 55, width: 150, height: 70))
+        XCTAssertEqual(frame(.bottom, idle: false, height: 190).height, 190)
+        XCTAssertEqual(frame(.left, idle: false), NSRect(x: 105, y: 320, width: 430, height: 260))
+        XCTAssertEqual(frame(.right, idle: true), NSRect(x: 1005, y: 390, width: 90, height: 120))
+        for position in [PillPosition.left, .right] {
+            let idle = frame(position, idle: true), active = frame(position, idle: false, height: 190)
+            XCTAssertEqual(idle.midY, visible.midY)
+            XCTAssertEqual(active.midY, visible.midY)
+            XCTAssertEqual(position == .left ? idle.minX : idle.maxX, position == .left ? active.minX : active.maxX)
+        }
     }
 
     @MainActor func testHiddenLiveTextDoesNotHideThePillOrErrors() async {
