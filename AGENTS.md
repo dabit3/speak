@@ -22,7 +22,7 @@ Notarization uses the `speak-notary` Keychain profile. Never request or expose i
 
 Public releases are GitHub releases on `dabit3/speak` with the stapled DMG and its `.sha256` file attached. Keep the README download as a plain `Download for macOS` text link directly after the introductory paragraph, not an image button. It links to `releases/latest/download/Speak-<version>-<architecture>.dmg`, so update that filename in `README.md` after publishing each release. `scripts/download-button.swift` renders `Resources/DownloadForMac.png` from the shared logo file. `Resources/` is not copied into the app bundle.
 
-Speak 1.2.2 was accepted under submission `026f38e2-d9aa-48e1-9151-f1ed060060bf` with no reported issues. The signed, stapled release is `build/Speak-1.2.2-arm64.dmg`, published as GitHub release `v1.2.2`. This approval does not cover later builds automatically. When you pass a commit to `gh release create --target`, use the full SHA from `git rev-parse HEAD`.
+Speak 1.2.3 was accepted under submission `6769adff-86b2-4ec2-a6c6-02101f02d970` with no reported issues. The signed, stapled release is `build/Speak-1.2.3-arm64.dmg`, published as GitHub release `v1.2.3`. This approval does not cover later builds automatically. When you pass a commit to `gh release create --target`, use the full SHA from `git rev-parse HEAD`.
 
 `Sources/SpeakCore/SpeakLogo.swift` defines the shared microphone-and-text-cursor mark. The interface, menu bar, icon generator, and SVG export use that path. The build script compiles `scripts/icon.swift` with the shared logo file and generates the app icon, `Resources/Speak.png`, and `Resources/SpeakMark.svg`. Keep the waveform bars only for the live audio meter, not for branding.
 
