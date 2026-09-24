@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .target(name: "SpeakCore"),
         .executableTarget(name: "Speak", dependencies: ["SpeakCore"]),
+        .executableTarget(name: "SpeakBenchmark", dependencies: ["SpeakCore"]),
         .testTarget(name: "SpeakCoreTests", dependencies: ["SpeakCore"]),
         .testTarget(name: "SpeakTests", dependencies: ["Speak"])
     ],

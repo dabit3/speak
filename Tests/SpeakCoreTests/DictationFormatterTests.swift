@@ -132,7 +132,10 @@ final class DictationFormatterTests: XCTestCase {
             ("Email me at nader at example dot com.", "Email me at nader@example.com."),
             ("Reach John dot Smith at mail dot example dot co dot uk", "Reach john.smith@mail.example.co.uk"),
             ("I work at google dot com", "I work at google.com"),
-            ("Visit speak dot app for details.", "Visit speak.app for details.")
+            ("Visit speak dot app for details.", "Visit speak.app for details."),
+            ("My email is nadir@example dot com, so reach out.", "My email is nadir@example.com, so reach out."),
+            ("My email is nadir@ example.com, so reach out.", "My email is nadir@example.com, so reach out."),
+            ("Write to sales@ the team.", "Write to sales@ the team.")
         ])
     }
 

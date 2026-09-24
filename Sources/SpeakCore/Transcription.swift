@@ -17,7 +17,7 @@ public enum TranscriptionDelay: String, CaseIterable, Identifiable {
 public struct TranscriptionConfiguration {
     public static let endpoint = URL(string: "wss://api.openai.com/v1/realtime?intent=transcription")!
     public static let model = "gpt-live-transcribe"
-    public static let prompt = "One person dictating text to type into a Mac app, such as a message, email, document, note, or code editor. Speech can include names, technical terms, numbers, dates, times, prices, email addresses, and spoken punctuation such as comma, period, question mark, or new line."
+    public static let prompt = "Dictated messages, emails, notes, and documents written on a computer. The speaker may mention names, products, technical terms, numbers, dates, times, prices, and email addresses."
     public let language: String
     public let delay: TranscriptionDelay
     public let vocabulary: String

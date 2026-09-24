@@ -161,7 +161,9 @@ public enum DictationFormatter {
 
     private static func joinAddresses(_ pieces: inout [Piece]) {
         func label(_ index: Int) -> Bool {
-            pieces[index].isWord && pieces[index].core.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+            let core = pieces[index].core
+            return pieces[index].isWord && core.first != "@" && core.last != "@" && core.filter({ $0 == "@" }).count <= 1
+                && core.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "@" }
         }
         func linked(_ index: Int, by word: String) -> Bool {
             index >= 2 && pieces[index - 1].word == word && label(index - 2) && pieces.connects(index - 2) && pieces.connects(index - 1)
@@ -177,7 +179,7 @@ public enum DictationFormatter {
             while linked(start, by: "dot") { start -= 2 }
             while end + 2 < pieces.count, pieces[end + 1].word == "dot", label(end + 2), pieces.connects(end), pieces.connects(end + 1) { end += 2 }
             var address = spelled(start...end)
-            if linked(start, by: "at"), !notMailboxes.contains(pieces[start - 2].word) {
+            if !address.contains("@"), linked(start, by: "at"), !notMailboxes.contains(pieces[start - 2].word) {
                 var mailbox = start - 2
                 while linked(mailbox, by: "dot"), !notMailboxes.contains(pieces[mailbox - 2].word) { mailbox -= 2 }
                 address = spelled(mailbox...(start - 2)) + "@" + address
@@ -185,6 +187,15 @@ public enum DictationFormatter {
             }
             pieces.replace(start...end, with: address)
             index = start + 1
+        }
+        index = 0
+        while index + 1 < pieces.count {
+            let mailbox = pieces[index].core, domain = pieces[index + 1].core
+            if mailbox.count > 1, mailbox.last == "@", !mailbox.dropLast().contains("@"), pieces.connects(index),
+               domain.wholeMatch(of: #/[\p{L}\p{N}_-]+(\.[\p{L}\p{N}_-]+)*\.[\p{L}]{2,}/#) != nil {
+                pieces.replace(index...(index + 1), with: mailbox + domain)
+            }
+            index += 1
         }
     }
 }

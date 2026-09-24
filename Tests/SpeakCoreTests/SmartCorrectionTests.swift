@@ -119,16 +119,45 @@ final class SmartCorrectionTests: XCTestCase {
     }
 
     @MainActor func testPreviewsAreDebouncedAndBounded() async {
-        let service = CorrectionStub()
-        let correction = SmartCorrection(service: service, debounce: .seconds(1), maximumPreviews: 1)
+        let started = expectation(description: "Preview request started")
+        let service = CorrectionStub(onRequest: { started.fulfill() })
+        let correction = SmartCorrection(service: service, debounce: .milliseconds(50), maximumPreviews: 1)
         correction.preview("Please merge the first request.")
         correction.preview(raw)
-        correction.prepareLatest()
+        await fulfillment(of: [started], timeout: 1)
         correction.preview("Please merge a different request.")
-        correction.prepareLatest()
+        try? await Task.sleep(for: .milliseconds(150))
         let result = await correction.finish(raw)
         let requests = await service.requests
         XCTAssertEqual(result, raw)
         XCTAssertEqual(requests, [raw])
+    }
+
+    @MainActor func testPartialsAfterReleaseAreCorrectedBeforeTheFinalArrives() async {
+        let partial = "Please merge this pool request"
+        let service = CorrectionStub(responses: [raw: corrected], delay: .milliseconds(300))
+        let correction = SmartCorrection(service: service, debounce: .seconds(5), releasedDebounce: .zero, finalWait: .milliseconds(150))
+        correction.preview(partial)
+        correction.prepareFinal()
+        correction.preview(raw)
+        try? await Task.sleep(for: .milliseconds(250))
+        let result = await correction.finish(raw)
+        let requests = await service.requests
+        XCTAssertEqual(result, corrected)
+        XCTAssertEqual(requests, [partial, raw])
+    }
+
+    @MainActor func testRequestsAfterReleaseAreBounded() async {
+        let service = CorrectionStub()
+        let correction = SmartCorrection(service: service, debounce: .seconds(5), releasedDebounce: .zero, maximumReleasedRequests: 2)
+        correction.preview("Please merge this")
+        correction.prepareFinal()
+        for text in ["Please merge this pool", "Please merge this pool request", raw] {
+            correction.preview(text)
+            try? await Task.sleep(for: .milliseconds(30))
+        }
+        let requests = await service.requests
+        XCTAssertEqual(requests, ["Please merge this", "Please merge this pool"])
+        correction.cancel()
     }
 }

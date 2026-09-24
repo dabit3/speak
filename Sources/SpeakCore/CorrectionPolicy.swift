@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 public enum CorrectionPolicy {
     public static let maximumCharacters = 4000
@@ -22,18 +23,22 @@ public enum CorrectionPolicy {
         let revising = revisesItself(original)
         let source = DictationFormatter.canonicalNumbers(original), result = DictationFormatter.canonicalNumbers(corrected)
         let sourceDigits = source.filter(\.isNumber), resultDigits = result.filter(\.isNumber)
+        let terms = Set(keywords.map(normalize))
         guard revising ? isSubsequence(resultDigits, of: sourceDigits) : resultDigits == sourceDigits,
-              fits(protectedLiterals(corrected), within: protectedLiterals(original), exactly: !revising),
+              fits(protectedLiterals(corrected, terms: terms), within: protectedLiterals(original, terms: terms), exactly: !revising),
               fits(protectedWords(corrected), within: protectedWords(original), exactly: !revising) else { return nil }
         let sourceWords = words(original)
         if revising {
             let known = Set((sourceWords + keywords.flatMap(words)).map(normalize))
             guard names(in: corrected).allSatisfy({ known.contains(normalize($0)) }) else { return nil }
         } else {
-            let resultNames = Set(words(corrected).map(normalize))
-            let starters = Set("please the a an can could would should do does did we you they he she it this that these those let let's when where what why how if for in on at to send tell make add remove update use open close merge deploy push run create fix change check".split(separator: " ").map(String.init))
-            for (index, word) in sourceWords.enumerated() where word.count > 1 && word.first?.isUppercase == true && (index > 0 || !starters.contains(normalize(word))) {
-                guard resultNames.contains(normalize(word)) else { return nil }
+            let tags = nameTags(in: original)
+            let resultWords = Set(words(corrected).map(normalize))
+            var added = resultWords.subtracting(sourceWords.map(normalize))
+            for name in names(in: original, tags: tags) where !resultWords.contains(normalize(name)) {
+                let person = tags[normalize(name)] == .personalName
+                guard let spelling = added.first(where: { terms.contains($0) || (!person && respells(normalize(name), $0)) }) else { return nil }
+                added.remove(spelling)
             }
             for keyword in keywords {
                 let pattern = "(?i)(?<![\\p{L}\\p{N}])" + NSRegularExpression.escapedPattern(for: keyword) + "(?![\\p{L}\\p{N}])"
@@ -64,16 +69,41 @@ public enum CorrectionPolicy {
         return result
     }
 
-    private static func names(in text: String) -> [String] {
+    private static func names(in text: String, tags: [String: NLTag] = [:]) -> [String] {
         var result: [String] = []
         var cursor = text.startIndex
         text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byWords) { word, range, _, _ in
             defer { cursor = range.upperBound }
-            guard let word, word.count > 1, word.first?.isUppercase == true, !word.hasPrefix("I'"), !word.hasPrefix("I’"),
-                  cursor != text.startIndex, !text[cursor..<range.lowerBound].contains(where: { ".!?\n".contains($0) }) else { return }
-            result.append(word)
+            guard let word, word.count > 1, word.first?.isUppercase == true, !word.hasPrefix("I'"), !word.hasPrefix("I’"), !isAbbreviation(word) else { return }
+            let opensSentence = cursor == text.startIndex || text[cursor..<range.lowerBound].contains(where: { ".!?\n".contains($0) })
+            if !opensSentence || tags[normalize(word)] != nil { result.append(word) }
         }
         return result
+    }
+
+    private static func nameTags(in text: String) -> [String: NLTag] {
+        let tagger = NLTagger(tagSchemes: [.nameType])
+        tagger.string = text
+        var result: [String: NLTag] = [:]
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .nameType, options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+            if let tag, [.personalName, .placeName, .organizationName].contains(tag) { result[normalize(String(text[range]))] = tag }
+            return true
+        }
+        return result
+    }
+
+    private static func respells(_ name: String, _ word: String) -> Bool {
+        let a = Array(name), b = Array(word)
+        guard min(a.count, b.count) >= 5 else { return false }
+        var previous = Array(0...b.count)
+        for (i, x) in a.enumerated() {
+            var current = [i + 1] + Array(repeating: 0, count: b.count)
+            for (j, y) in b.enumerated() {
+                current[j + 1] = min(previous[j + 1] + 1, current[j] + 1, previous[j] + (x == y ? 0 : 1))
+            }
+            previous = current
+        }
+        return previous[b.count] <= (max(a.count, b.count) >= 8 ? 2 : 1)
     }
 
     private static func normalize(_ text: String) -> String {
@@ -91,8 +121,14 @@ public enum CorrectionPolicy {
             .map(normalize).filter { !ignorable.contains($0) }
     }
 
-    private static func protectedLiterals(_ text: String) -> [String] {
+    private static func protectedLiterals(_ text: String, terms: Set<String> = []) -> [String] {
         matches(#"https?://[^\s]+|[\w.+-]+@[\w.-]+\.[\w]+|"[^"\n]*"|“[^”\n]*”|`[^`]*`|\b[\p{L}_][\p{L}\p{N}]*[_./][\p{L}\p{N}_./-]+|--[\w-]+|\b[a-z]+[A-Z][\p{L}\p{N}]*\b|\b[A-Z]{2,}[A-Za-z0-9]*\b"#, in: text)
+            .filter { !isAbbreviation($0) }
+            .map { terms.contains(normalize($0)) ? normalize($0) : $0 }
+    }
+
+    private static func isAbbreviation(_ text: String) -> Bool {
+        ["am", "pm", "eg", "ie"].contains(normalize(text).replacingOccurrences(of: ".", with: ""))
     }
 
     private static func protectedWords(_ text: String) -> [String] {

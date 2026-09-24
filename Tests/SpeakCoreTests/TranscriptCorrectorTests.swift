@@ -32,6 +32,9 @@ final class TranscriptCorrectorTests: XCTestCase {
             XCTAssertEqual(json["model"] as? String, "gpt-4.1-nano-2025-04-14")
             XCTAssertEqual(json["store"] as? Bool, false)
             XCTAssertEqual((json["prediction"] as? [String: String])?["content"], original)
+            for unsupported in ["max_completion_tokens", "max_tokens", "n", "logprobs", "tools", "presence_penalty", "frequency_penalty"] {
+                XCTAssertNil(json[unsupported], "Predicted Outputs rejects \(unsupported)")
+            }
             let messages = try XCTUnwrap(json["messages"] as? [[String: String]])
             XCTAssertEqual(messages.first?["role"], "developer")
             let instructions = try XCTUnwrap(messages.first?["content"])

@@ -181,10 +181,15 @@ final class AppModel: ObservableObject {
             self.transcriber = transcriber
             let configuration = preferences.configuration
             correction?.cancel()
-            correction = preferences.smartCorrectionEnabled ? SmartCorrection(
-                service: OpenAITranscriptCorrector(apiKey: key),
-                context: CorrectionContext(language: configuration.language, keywords: configuration.keywords, application: target?.name ?? "")
-            ) : nil
+            correction = nil
+            if preferences.smartCorrectionEnabled {
+                let corrector = OpenAITranscriptCorrector(apiKey: key)
+                corrector.prepare()
+                correction = SmartCorrection(
+                    service: corrector,
+                    context: CorrectionContext(language: configuration.language, keywords: configuration.keywords, application: target?.name ?? "")
+                )
+            }
             timer = Task { [weak self] in
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
@@ -249,7 +254,7 @@ final class AppModel: ObservableObject {
         phase = .finishing
         level = 0
         timer?.cancel()
-        correction?.prepareLatest()
+        correction?.prepareFinal()
         transcriber?.finishSoon()
         capture?.stop()
         capture = nil

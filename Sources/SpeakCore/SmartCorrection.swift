@@ -7,10 +7,14 @@ public final class SmartCorrection {
     private let service: any TranscriptCorrecting
     private let context: CorrectionContext
     private let debounce: Duration
+    private let releasedDebounce: Duration
     private let finalWait: Duration
     private let revisionWait: Duration
     private let maximumPreviews: Int
+    private let maximumReleasedRequests: Int
     private var previewCount = 0
+    private var releasedCount = 0
+    private var released = false
     private var latest = ""
     private var debounceTask: Task<Void, Never>?
     private var pending: (source: String, task: Task<String, Never>)?
@@ -23,35 +27,47 @@ public final class SmartCorrection {
         service: any TranscriptCorrecting,
         context: CorrectionContext = CorrectionContext(),
         debounce: Duration = .milliseconds(300),
+        releasedDebounce: Duration = .milliseconds(20),
         finalWait: Duration = SmartCorrection.maximumAddedWait,
         revisionWait: Duration = SmartCorrection.maximumRevisionWait,
-        maximumPreviews: Int = 4
+        maximumPreviews: Int = 4,
+        maximumReleasedRequests: Int = 8
     ) {
         self.service = service
         self.context = context
         self.debounce = debounce
+        self.releasedDebounce = releasedDebounce
         self.finalWait = finalWait
         self.revisionWait = revisionWait
         self.maximumPreviews = maximumPreviews
+        self.maximumReleasedRequests = maximumReleasedRequests
     }
 
     public func preview(_ text: String) {
         guard !cancelled, !finishing, text != latest else { return }
         latest = text
         debounceTask?.cancel()
-        guard CorrectionPolicy.isEligible(text), previewCount < maximumPreviews else { return }
-        debounceTask = Task { [weak self, debounce] in
-            do { try await Task.sleep(for: debounce) } catch { return }
+        guard CorrectionPolicy.isEligible(text), hasCapacity else { return }
+        let delay = released ? releasedDebounce : debounce
+        debounceTask = Task { [weak self] in
+            do { try await Task.sleep(for: delay) } catch { return }
             guard let self, !self.cancelled, !self.finishing, self.latest == text else { return }
-            self.prepareLatest()
+            self.requestLatest()
         }
     }
 
-    public func prepareLatest() {
-        guard !cancelled, !finishing, CorrectionPolicy.isEligible(latest), previewCount < maximumPreviews,
+    public func prepareFinal() {
+        released = true
+        requestLatest()
+    }
+
+    private var hasCapacity: Bool { released ? releasedCount < maximumReleasedRequests : previewCount < maximumPreviews }
+
+    private func requestLatest() {
+        guard !cancelled, !finishing, CorrectionPolicy.isEligible(latest), hasCapacity,
               pending?.source != latest, cached?.source != latest else { return }
         debounceTask?.cancel()
-        previewCount += 1
+        if released { releasedCount += 1 } else { previewCount += 1 }
         _ = begin(latest)
     }
 

@@ -85,6 +85,39 @@ final class CorrectionPolicyTests: XCTestCase {
         XCTAssertNil(CorrectionPolicy.accept("Please review the pull request and merge it into main after the tests pass.", candidate: "Please merge it."))
     }
 
+    func testAcceptsTimeSuffixStyle() {
+        XCTAssertEqual(CorrectionPolicy.accept("Let's meet at three, no wait, 4:30 p.m. on Tuesday.", candidate: "Let's meet at 4:30 PM on Tuesday."), "Let's meet at 4:30 PM on Tuesday.")
+        XCTAssertEqual(CorrectionPolicy.accept("The demo starts at 3:30 p.m. on Thursday.", candidate: "The demo starts at 3:30 PM on Thursday."), "The demo starts at 3:30 PM on Thursday.")
+        XCTAssertNil(CorrectionPolicy.accept("The demo starts at 3:30 p.m. on Thursday.", candidate: "The demo starts at 4:30 PM on Thursday."))
+    }
+
+    func testFixesMisheardSentenceStartsButKeepsLeadingNames() {
+        let original = "Ease add tailwind and GraphQL to the project, then restart the dev server."
+        let fixed = "Please add Tailwind and GraphQL to the project, then restart the dev server."
+        XCTAssertEqual(CorrectionPolicy.accept(original, candidate: fixed), fixed)
+        XCTAssertNil(CorrectionPolicy.accept("Sarah said the build is green today.", candidate: "Share said the build is green today."))
+        XCTAssertNil(CorrectionPolicy.accept("Microsoft announced the new model today.", candidate: "My soft announced the new model today."))
+    }
+
+    func testAllowsRespelledProductNamesButNotReplacedNames() {
+        let original = "The deploy to Versel failed because the variable wasn't set."
+        let fixed = "The deploy to Vercel failed because the variable wasn't set."
+        XCTAssertEqual(CorrectionPolicy.accept(original, candidate: fixed), fixed)
+        XCTAssertEqual(CorrectionPolicy.accept("We store files in Superbase for now.", candidate: "We store files in Supabase for now."), "We store files in Supabase for now.")
+        XCTAssertNil(CorrectionPolicy.accept("Please ask Sarah about the release.", candidate: "Please ask Sara about the release."))
+        XCTAssertNil(CorrectionPolicy.accept("Please ask Jon about the release.", candidate: "Please ask John about the release."))
+        XCTAssertNil(CorrectionPolicy.accept("Please send it to Priya today.", candidate: "Please send it to Maria today."))
+        XCTAssertNil(CorrectionPolicy.accept("Please ask Martin to review the release.", candidate: "Please ask Martina to review the release."))
+        XCTAssertNil(CorrectionPolicy.accept("Please send this to Nader today.", candidate: "Please send this to Nadir today."))
+        XCTAssertEqual(CorrectionPolicy.accept("Please send this to Nadir today.", candidate: "Please send this to Nader today.", keywords: ["Nader"]), "Please send this to Nader today.")
+    }
+
+    func testVocabularySpellingCanReplaceALiteral() {
+        XCTAssertNil(CorrectionPolicy.accept("Please build it for IOS today.", candidate: "Please build it for iOS today."))
+        XCTAssertEqual(CorrectionPolicy.accept("Please build it for IOS today.", candidate: "Please build it for iOS today.", keywords: ["iOS"]), "Please build it for iOS today.")
+        XCTAssertEqual(CorrectionPolicy.accept("The deploy to Versel failed again today.", candidate: "The deploy to Vercel failed again today.", keywords: ["Vercel"]), "The deploy to Vercel failed again today.")
+    }
+
     func testDetectsSelfCorrectionCues() {
         for text in ["Let's meet at 3, no wait, 4.", "Send it to John, I mean Sarah.", "Use Postgres, actually SQLite.", "Delete the file. Scratch that.", "Book the 9 AM flight, sorry, the 10 AM flight.", "Tuesday or rather Wednesday."] {
             XCTAssertTrue(CorrectionPolicy.revisesItself(text), text)

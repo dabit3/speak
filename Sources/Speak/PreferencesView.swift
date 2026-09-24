@@ -90,7 +90,7 @@ struct PreferencesView: View {
                             .font(.system(size: 10)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
                     }
                     Divider()
-                    settingRow("Transcription speed", detail: "Faster partial text, or more context for accuracy.") {
+                    settingRow("Transcription speed", detail: "More context improves accuracy but pastes slightly later.") {
                         Picker("Live text delay", selection: $preferences.delay) {
                             ForEach(TranscriptionDelay.allCases) { Text($0.title).tag($0) }
                         }.labelsHidden().frame(width: 190)
@@ -108,7 +108,7 @@ struct PreferencesView: View {
                     }
                 }
                 section("YOUR VOCABULARY") {
-                    Text("Names, products, and words you use. Separated by commas.").font(.system(size: 11)).foregroundStyle(Color.muted)
+                    Text("Names, products, and words you use, separated by commas. These help Speak hear and spell them correctly.").font(.system(size: 11)).foregroundStyle(Color.muted)
                     TextField("e.g. Nader, PostgreSQL, Speak", text: $preferences.vocabulary, axis: .vertical)
                         .textFieldStyle(.plain).font(.system(size: 12)).lineLimit(2...3)
                         .padding(11).background(Color.canvas, in: RoundedRectangle(cornerRadius: 8))

@@ -41,7 +41,7 @@ In Preferences, you can choose Control + Option, add vocabulary hints, or move t
 
 Speak formats English dictation on your Mac before it pastes. Say “comma,” “period,” “question mark,” “exclamation point,” “colon,” “new line,” or “new paragraph” to add punctuation. Speak writes numbers of 10 or more, times, dates, prices, percentages, and versions as digits. For example, “three thirty pm” becomes “3:30 PM” and “twenty five dollars” becomes “$25.” Small counts in ordinary sentences, such as “two options,” stay as words. Spoken email addresses like “nader at example dot com” become “nader@example.com.” Speak also removes “um” and “uh.”
 
-Smart correction is on by default and uses GPT-4.1 nano. It fixes likely misheard words and punctuation. It also applies corrections you make while speaking. For example, “Let’s meet at 3, no wait, 4” becomes “Let’s meet at 4.” It allows up to 350 ms of extra wait, or 1 second when you correct yourself. After that, it falls back to the formatted text. Choose “Copy original dictation” from the menu bar to recover the unedited transcript. Turn off “Smart correction” in Preferences to skip AI edits.
+Smart correction is on by default and uses GPT-4.1 nano. It fixes likely misheard words and punctuation. It also applies corrections you make while speaking. For example, “Let’s meet at 3, no wait, 4” becomes “Let’s meet at 4.” It allows up to 350 ms of extra wait, or 1 second when you correct yourself. After that, it falls back to the formatted text. Choose “Copy original dictation” from the menu bar to recover the unedited transcript. Turn off “Smart correction” in Preferences to skip AI edits. Add names and product terms under “Your vocabulary” to help Speak hear and spell them correctly.
 
 ### Privacy
 
