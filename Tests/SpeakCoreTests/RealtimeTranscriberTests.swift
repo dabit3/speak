@@ -106,7 +106,27 @@ final class RealtimeTranscriberTests: XCTestCase {
         do {
             _ = try await client.transcribe(audio: audio, configuration: configuration, onReady: {}, onPartial: { _ in })
             XCTFail("Short recording must fail")
-        } catch { XCTAssertTrue(error.localizedDescription.contains("too short")) }
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("too short"))
+            XCTAssertEqual((error as? DictationError)?.dismissesAutomatically, true)
+        }
+        let events = await socket.storage.eventTypes()
+        XCTAssertFalse(events.contains("input_audio_buffer.commit"))
+    }
+
+    @MainActor func testSilentMicrophoneIsReportedWithoutCommitting() async {
+        let socket = MockSocket()
+        let client = RealtimeTranscriber(socket: socket)
+        let audio = AsyncThrowingStream<Data, Error> { continuation in
+            continuation.yield(Data(repeating: 0, count: 9600))
+            continuation.finish(throwing: DictationError.silentMicrophone("Test Microphone"))
+        }
+        do {
+            _ = try await client.transcribe(audio: audio, configuration: configuration, onReady: {}, onPartial: { _ in })
+            XCTFail("A silent microphone must not produce a transcript")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, DictationError.silentMicrophone("Test Microphone").message)
+        }
         let events = await socket.storage.eventTypes()
         XCTAssertFalse(events.contains("input_audio_buffer.commit"))
     }

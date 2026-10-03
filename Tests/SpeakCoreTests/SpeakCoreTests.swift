@@ -60,6 +60,7 @@ final class TranscriptionTests: XCTestCase {
         let audio = try XCTUnwrap(session["audio"] as? [String: Any])
         let input = try XCTUnwrap(audio["input"] as? [String: Any])
         XCTAssertTrue(input["turn_detection"] is NSNull)
+        XCTAssertEqual((input["noise_reduction"] as? [String: Any])?["type"] as? String, "near_field")
         let transcription = try XCTUnwrap(input["transcription"] as? [String: Any])
         XCTAssertEqual(transcription["model"] as? String, "gpt-live-transcribe")
         XCTAssertEqual(transcription["delay"] as? String, "low")
@@ -69,6 +70,13 @@ final class TranscriptionTests: XCTestCase {
         let prompt = try XCTUnwrap(transcription["prompt"] as? String)
         XCTAssertEqual(prompt, TranscriptionConfiguration.prompt)
         XCTAssertFalse(prompt.contains("<") || prompt.contains(">") || prompt.contains("\n"))
+    }
+
+    func testFarFieldMicrophonesRequestFarFieldNoiseReduction() throws {
+        var config = TranscriptionConfiguration(language: "en", delay: .low, vocabulary: "")
+        config.noiseReduction = .farField
+        let string = String(decoding: try config.sessionMessage(), as: UTF8.self)
+        XCTAssertTrue(string.contains("\"noise_reduction\":{\"type\":\"far_field\"}"))
     }
 
     func testMostContextDelayIsAvailable() throws {
@@ -108,7 +116,10 @@ final class TranscriptionTests: XCTestCase {
     func testEmptyFinalIsAnError() throws {
         var accumulator = TranscriptAccumulator()
         _ = try accumulator.consume(event("input_audio_buffer.committed", ["item_id": "a"]))
-        XCTAssertThrowsError(try accumulator.consume(event("conversation.item.input_audio_transcription.completed", ["item_id": "a", "transcript": " "])))
+        XCTAssertThrowsError(try accumulator.consume(event("conversation.item.input_audio_transcription.completed", ["item_id": "a", "transcript": " "]))) { error in
+            XCTAssertEqual(error.localizedDescription, DictationError.noSpeech.message)
+            XCTAssertEqual((error as? DictationError)?.dismissesAutomatically, true)
+        }
     }
 
     func testFailureNeverBecomesAPartialSuccess() {

@@ -56,6 +56,9 @@ struct Variant {
     var vocabulary = ""
     var padding = 0
     var warm = true
+    var noiseReduction = NoiseReduction.nearField
+    var attenuation = 0.0
+    var conditions = false
 
     init(_ spec: String) throws {
         name = spec
@@ -67,16 +70,36 @@ struct Variant {
             case "previous-prompt": prompt = previousPrompt
             case "keywords": vocabulary = benchmarkVocabulary
             case "cold": warm = false
+            case "far-field": noiseReduction = .farField
+            case "agc": conditions = true
             default:
-                guard token.hasPrefix("pad"), let value = Int(token.dropFirst(3)) else {
+                if token.hasPrefix("pad"), let value = Int(token.dropFirst(3)) {
+                    padding = value
+                } else if token.hasPrefix("quiet"), let value = Double(token.dropFirst(5)) {
+                    attenuation = value
+                } else {
                     throw DictationError("Unknown variant token: \(token)")
                 }
-                padding = value
             }
         }
     }
 
-    var configuration: TranscriptionConfiguration { .init(language: "en", delay: delay, vocabulary: vocabulary) }
+    var configuration: TranscriptionConfiguration {
+        var configuration = TranscriptionConfiguration(language: "en", delay: delay, vocabulary: vocabulary)
+        configuration.noiseReduction = noiseReduction
+        return configuration
+    }
+
+    func prepare(_ pcm: Data) -> Data {
+        guard attenuation > 0 || conditions else { return pcm }
+        let scale = Float(pow(10, -attenuation / 20)) / Float(Int16.max)
+        let samples = pcm.withUnsafeBytes { $0.bindMemory(to: Int16.self).map { Float($0) * scale } }
+        if conditions {
+            var conditioner = AudioConditioner()
+            return conditioner.process([samples]).audio
+        }
+        return samples.map { Int16(clamping: Int(($0 * Float(Int16.max)).rounded())) }.withUnsafeBufferPointer { Data(buffer: $0) }
+    }
 }
 
 struct Clip {
@@ -389,7 +412,7 @@ final class Runner {
         let correction = SmartCorrection(service: recorder, context: CorrectionContext(language: "en", keywords: configuration.keywords, application: "Notes"))
         if variant.warm { corrector.prepare() }
         let partials = PartialLog()
-        let audio = PacedAudio(pcm: clip.pcm, paddingMilliseconds: variant.padding) { @Sendable in
+        let audio = PacedAudio(pcm: variant.prepare(clip.pcm), paddingMilliseconds: variant.padding) { @Sendable in
             await MainActor.run {
                 timeline.mark("release")
                 partials.atRelease = partials.latest
@@ -550,7 +573,8 @@ struct SpeakBenchmark {
             Usage: swift run -c release SpeakBenchmark [--variants low,medium,high+keywords] [--voices Samantha,Daniel:15]
                    [--limit N] [--concurrency N] [--dry-run] [--correction-latency cold,warm]
                    [--replay .build/benchmark/results/<file>.json] [--vocabulary "Nader, Vercel"]
-            Variant tokens: minimal low medium high xhigh baseline no-prompt previous-prompt keywords padN cold
+            Variant tokens: minimal low medium high xhigh baseline no-prompt previous-prompt keywords padN cold far-field quietN agc
+            quietN lowers the clip by N dB. agc applies the app's microphone gain control before streaming.
             Reads the API key from OPENAI_API_KEY. Audio is generated with macOS text-to-speech.
             """)
             return

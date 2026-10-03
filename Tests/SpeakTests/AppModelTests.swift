@@ -1,8 +1,52 @@
 import AppKit
 import XCTest
+import SpeakCore
 @testable import Speak
 
 final class AppModelTests: XCTestCase {
+    @MainActor func testNoSpeechErrorDismissesItselfAfterAMoment() async throws {
+        let fixture = makeFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        model.phase = .listening
+        model.finish()
+        await model.processTranscript("Um.")
+        XCTAssertEqual(model.phase, .failure)
+        XCTAssertEqual(model.message, DictationError.noSpeech.message)
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertEqual(model.phase, .idle)
+        XCTAssertEqual(model.message, "")
+    }
+
+    @MainActor func testEmptyServerTranscriptAndShortRecordingDismissThemselves() async throws {
+        let fixture = makeFixture()
+        defer { fixture.cleanUp() }
+        for error in [DictationError.noSpeech, .tooShort] {
+            fixture.model.fail(error)
+            XCTAssertEqual(fixture.model.phase, .failure)
+            try await Task.sleep(for: .milliseconds(400))
+            XCTAssertEqual(fixture.model.phase, .idle, error.message)
+        }
+    }
+
+    @MainActor func testErrorsThatNeedAttentionStayUntilDismissed() async throws {
+        let fixture = makeFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let sticky = DictationError("Your API key was not accepted. Update it in Preferences.")
+        model.fail(DictationError.noSpeech)
+        model.fail(sticky)
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertEqual(model.phase, .failure)
+        XCTAssertEqual(model.message, sticky.message)
+        model.fail(DictationError.silentMicrophone("ZoomAudioDevice"))
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertEqual(model.phase, .failure)
+        XCTAssertTrue(model.message.contains("“ZoomAudioDevice”"))
+        model.dismiss()
+        XCTAssertEqual(model.phase, .idle)
+    }
+
     @MainActor func testReleaseAutomaticallyPastesBeforeUpdatingTheTranscriptView() async {
         let pasteboard = NSPasteboard.withUniqueName()
         defer { pasteboard.releaseGlobally() }
@@ -64,5 +108,19 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.lastTranscript.isEmpty)
         XCTAssertNil(pasteboard.string(forType: .string))
         model.shutdown()
+    }
+
+    @MainActor private func makeFixture() -> (model: AppModel, cleanUp: () -> Void) {
+        let suite = "SpeakAppModelTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let pasteboard = NSPasteboard.withUniqueName()
+        let target = InsertionTarget(processID: 100, name: "Editor", element: nil, isSecure: false)
+        let insertion = TextInsertion(pasteboard: pasteboard, captureTarget: { target }, hasPermission: { true }, sendPaste: { _ in true })
+        let model = AppModel(preferences: Preferences(defaults: defaults, checkKeychain: false), insertion: insertion, captureTarget: { target }, transientErrorDuration: .milliseconds(50))
+        return (model, {
+            model.shutdown()
+            pasteboard.releaseGlobally()
+            defaults.removePersistentDomain(forName: suite)
+        })
     }
 }

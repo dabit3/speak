@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
     let shortcut = GlobalShortcut()
     let insertion: TextInsertion
     private let captureTarget: () -> InsertionTarget?
+    private let transientErrorDuration: Duration
     @Published var phase: Phase = .idle
     @Published var partial = ""
     @Published var lastTranscript = ""
@@ -46,13 +47,15 @@ final class AppModel: ObservableObject {
         preferences: Preferences? = nil,
         insertion: TextInsertion? = nil,
         captureTarget: (() -> InsertionTarget?)? = nil,
-        correction: SmartCorrection? = nil
+        correction: SmartCorrection? = nil,
+        transientErrorDuration: Duration = .milliseconds(2500)
     ) {
         let preferences = preferences ?? Preferences()
         self.preferences = preferences
         self.insertion = insertion ?? TextInsertion()
         self.captureTarget = captureTarget ?? InsertionTarget.capture
         self.correction = correction
+        self.transientErrorDuration = transientErrorDuration
         shortcut.isActive = { [weak self] in self?.phase.isBusy ?? false }
         shortcut.onCancel = { [weak self] in self?.cancel() }
         shortcut.onPaste = { [weak self] in self?.pasteLast() }
@@ -151,7 +154,7 @@ final class AppModel: ObservableObject {
         }
         let target = captureTarget()
         guard target?.isSecure != true else {
-            fail("For your privacy, dictation is disabled in password fields.")
+            fail(DictationError("For your privacy, dictation is disabled in password fields."))
             return
         }
         dismissTask?.cancel()
@@ -179,7 +182,8 @@ final class AppModel: ObservableObject {
             self.capture = capture
             let transcriber = RealtimeTranscriber(socket: OpenAIWebSocket(apiKey: key))
             self.transcriber = transcriber
-            let configuration = preferences.configuration
+            var configuration = preferences.configuration
+            configuration.noiseReduction = capture.noiseReduction
             correction?.cancel()
             correction = nil
             if preferences.smartCorrectionEnabled {
@@ -212,10 +216,10 @@ final class AppModel: ObservableObject {
                 } catch is CancellationError {
                 } catch {
                     guard let self, self.takeID == id else { return }
-                    self.fail(error.localizedDescription)
+                    self.fail(error)
                 }
             }
-        } catch { fail(error.localizedDescription) }
+        } catch { fail(error) }
     }
 
     func receivePartial(_ text: String) {
@@ -230,7 +234,7 @@ final class AppModel: ObservableObject {
         let id = takeID
         let formatted = DictationFormatter.format(text, language: preferences.language)
         guard !formatted.isEmpty else {
-            fail("No speech was detected. Try speaking closer to your microphone.")
+            fail(DictationError.noSpeech)
             return
         }
         let result: String
@@ -256,8 +260,7 @@ final class AppModel: ObservableObject {
         timer?.cancel()
         correction?.prepareFinal()
         transcriber?.finishSoon()
-        capture?.stop()
-        capture = nil
+        capture?.finish()
     }
 
     func cancel(resetShortcut: Bool = true) {
@@ -329,7 +332,7 @@ final class AppModel: ObservableObject {
         dismissLater()
     }
 
-    private func fail(_ text: String) {
+    func fail(_ error: Error) {
         correction?.cancel()
         correction = nil
         capture?.stop()
@@ -338,15 +341,17 @@ final class AppModel: ObservableObject {
         transcriber = nil
         timer?.cancel()
         shortcut.reset()
+        dismissTask?.cancel()
         level = 0
-        message = text
+        message = error.localizedDescription
         phase = .failure
+        if (error as? DictationError)?.dismissesAutomatically == true { dismissLater(after: transientErrorDuration) }
     }
 
-    private func dismissLater() {
+    private func dismissLater(after delay: Duration = .seconds(3)) {
         dismissTask?.cancel()
         dismissTask = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            do { try await Task.sleep(for: delay) } catch { return }
             self?.dismiss()
         }
     }

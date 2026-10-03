@@ -14,6 +14,11 @@ public enum TranscriptionDelay: String, CaseIterable, Identifiable {
     }
 }
 
+public enum NoiseReduction: String {
+    case nearField = "near_field"
+    case farField = "far_field"
+}
+
 public struct TranscriptionConfiguration {
     public static let endpoint = URL(string: "wss://api.openai.com/v1/realtime?intent=transcription")!
     public static let model = "gpt-live-transcribe"
@@ -21,6 +26,7 @@ public struct TranscriptionConfiguration {
     public let language: String
     public let delay: TranscriptionDelay
     public let vocabulary: String
+    public var noiseReduction: NoiseReduction = .nearField
 
     public init(language: String, delay: TranscriptionDelay, vocabulary: String) {
         self.language = language
@@ -47,7 +53,7 @@ public struct TranscriptionConfiguration {
                 "audio": ["input": [
                     "format": ["type": "audio/pcm", "rate": 24000],
                     "transcription": transcription,
-                    "noise_reduction": ["type": "near_field"],
+                    "noise_reduction": ["type": noiseReduction.rawValue],
                     "turn_detection": NSNull()
                 ]]
             ]
@@ -57,8 +63,19 @@ public struct TranscriptionConfiguration {
 
 public struct DictationError: LocalizedError {
     public let message: String
+    public let dismissesAutomatically: Bool
     public var errorDescription: String? { message }
-    public init(_ message: String) { self.message = message }
+    public init(_ message: String, dismissesAutomatically: Bool = false) {
+        self.message = message
+        self.dismissesAutomatically = dismissesAutomatically
+    }
+
+    public static let noSpeech = DictationError("No speech was detected. Try speaking closer to your microphone.", dismissesAutomatically: true)
+    public static let tooShort = DictationError("That recording was too short. Hold the shortcut a little longer.", dismissesAutomatically: true)
+
+    public static func silentMicrophone(_ name: String?) -> DictationError {
+        DictationError("\(name.map { "“\($0)”" } ?? "Your microphone") sent no sound. Check that it’s the right input in System Settings > Sound, and that it isn’t muted.")
+    }
 }
 
 public struct TranscriptAccumulator {
@@ -94,7 +111,7 @@ public struct TranscriptAccumulator {
         }
         guard let committedItem, let final = completed[committedItem] else { return nil }
         let trimmed = final.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw DictationError("No speech was detected. Try speaking closer to your microphone.") }
+        guard !trimmed.isEmpty else { throw DictationError.noSpeech }
         partial = trimmed
         return trimmed
     }

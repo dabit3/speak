@@ -37,6 +37,10 @@ OpenAI API usage is billed separately from ChatGPT subscriptions. The published 
 
 In Preferences, you can choose Control + Option, add vocabulary hints, or move the pill from the bottom of the screen to the left or right edge, where it stands upright. Turn off “Show live text above pill” to hide the transcript while recording.
 
+### Microphones
+
+Speak hears your microphone on any input of an audio interface. It raises quiet speech and keeps listening for a moment after you release the shortcut, so your last word isn’t cut off. A “No speech was detected” message clears itself after a couple of seconds. If Speak says your microphone sent no sound, choose the right input in System Settings > Sound and check that it isn’t muted.
+
 ### Formatting and corrections
 
 Speak formats English dictation on your Mac before it pastes. Say “comma,” “period,” “question mark,” “exclamation point,” “colon,” “new line,” or “new paragraph” to add punctuation. Speak writes numbers of 10 or more, times, dates, prices, percentages, and versions as digits. For example, “three thirty pm” becomes “3:30 PM” and “twenty five dollars” becomes “$25.” Small counts in ordinary sentences, such as “two options,” stay as words. Spoken email addresses like “nader at example dot com” become “nader@example.com.” Speak also removes “um” and “uh.”

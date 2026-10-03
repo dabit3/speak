@@ -103,7 +103,7 @@ public final class RealtimeTranscriber {
                         try await socket.send(String(decoding: JSONSerialization.data(withJSONObject: event), as: UTF8.self))
                     }
                     try Task.checkCancellation()
-                    guard bytes >= 4800 else { throw DictationError("That recording was too short. Hold the shortcut a little longer.") }
+                    guard bytes >= 4800 else { throw DictationError.tooShort }
                     try await socket.send("{\"type\":\"input_audio_buffer.commit\"}")
                     return nil
                 }
