@@ -14,7 +14,7 @@
 
 Speak is a small macOS menu bar app that turns speech into text with OpenAI GPT-Live-Transcribe. Hold <kbd>fn</kbd> to dictate. Release it to paste your words into the active app.
 
-[Download for macOS](https://github.com/dabit3/speak/releases/latest/download/Speak-1.2.5-arm64.dmg)
+[Download for macOS](https://github.com/dabit3/speak/releases/latest/download/Speak-1.2.6-arm64.dmg)
 
 ## For users
 
@@ -41,15 +41,25 @@ In Preferences, you can choose Control + Option, add vocabulary hints, or move t
 
 Speak hears your microphone on any input of an audio interface. It raises quiet speech and keeps listening for a moment after you release the shortcut, so your last word isn’t cut off. A “No speech was detected” message clears itself after a couple of seconds. If Speak says your microphone sent no sound, choose the right input in System Settings > Sound and check that it isn’t muted.
 
+Speak counts silence from the actual audio samples so that short buffers do not end capture too early. If microphone channels nearly cancel each other out, Speak uses the strongest channel.
+
 ### Formatting and corrections
 
-Speak formats English dictation on your Mac before it pastes. Say “comma,” “period,” “question mark,” “exclamation point,” “colon,” “new line,” or “new paragraph” to add punctuation. Speak writes numbers of 10 or more, times, dates, prices, percentages, and versions as digits. For example, “three thirty pm” becomes “3:30 PM” and “twenty five dollars” becomes “$25.” Small counts in ordinary sentences, such as “two options,” stay as words. Spoken email addresses like “nader at example dot com” become “nader@example.com.” Speak also removes “um” and “uh.”
+Speak formats English dictation on your Mac before it pastes. Say “comma,” “period,” “question mark,” “exclamation point,” “colon,” “new line,” or “new paragraph” to add punctuation. Say “open parentheses” and “close parentheses” to add parentheses. Say “open bracket” and “close bracket” to add square brackets.
+
+Speak writes numbers of 10 or more, times, dates, prices, percentages, and versions as digits. For example, “three thirty pm” becomes “3:30 PM” and “twenty five dollars” becomes “$25.” Small counts in ordinary sentences, such as “two options,” stay as words. Spoken email addresses like “nader at example dot com” become “nader@example.com.” Numeric times such as “3 30 PM” also become “3:30 PM.” Speak also removes “um” and “uh.”
+
+Exact vocabulary matches, including letter case, stay as words instead of becoming punctuation or numbers. They can still form spoken email addresses and domains. Duplicate vocabulary hints use only one slot when letter case or spacing differs.
 
 Smart correction is on by default and uses GPT-4.1 nano. It fixes likely misheard words and punctuation. It also applies corrections you make while speaking. For example, “Let’s meet at 3, no wait, 4” becomes “Let’s meet at 4.” It allows up to 350 ms of extra wait, or 1 second when you correct yourself. After that, it falls back to the formatted text. Choose “Copy original dictation” from the menu bar to recover the unedited transcript. Turn off “Smart correction” in Preferences to skip AI edits. Add names and product terms under “Your vocabulary” to help Speak hear and spell them correctly.
+
+Before it accepts an edit, smart correction compares decimal values, signs, currency, units, and AM/PM. It also keeps existing line and paragraph breaks unless you make a spoken revision. These safeguards can reject unsafe edits, but they do not guarantee that every correction preserves meaning.
 
 ### Teach Speak a spelling
 
 If Speak gets a name or term wrong, choose “Fix last dictation” from the menu bar, correct the word, and click Learn. Speak remembers the spelling and uses it the next time you say that word. If the wrong spelling isn’t a real word, such as “Superbase” for “Supabase,” Speak also replaces it automatically. Turn on “Learn from my corrections” in Preferences to learn from fixes you make in other apps right after Speak pastes. Learned words appear in Preferences, where you can remove them.
+
+Learned replacements leave existing quotations, email addresses, and web addresses unchanged. They also do not combine words from different lines or paragraphs.
 
 ### Privacy
 
