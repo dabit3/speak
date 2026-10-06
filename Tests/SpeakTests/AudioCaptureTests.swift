@@ -33,6 +33,20 @@ final class AudioCaptureTests: XCTestCase {
         XCTAssertEqual(audio.count, 10 * bufferBytes)
     }
 
+    func testShortQuietBuffersDoNotCutOffTheNextSpeechBuffer() async throws {
+        let capture = AudioCapture(microphone: nil)
+        capture.receive([quiet], at: 0.1)
+        capture.receive([voice], at: 0.2)
+        capture.finish(at: 0.2)
+        for step in 1...8 {
+            capture.receive([Array(quiet.prefix(120))], at: 0.2 + Double(step) * 0.005)
+        }
+        capture.receive([voice], at: 0.34)
+        capture.receive([quiet], at: 0.44)
+        let audio = try await collect(capture.stream)
+        XCTAssertEqual(audio.count, 4 * bufferBytes + 8 * 120 * MemoryLayout<Int16>.size)
+    }
+
     func testStopsAtTheTailLimitWhenSoundContinues() async throws {
         let capture = AudioCapture(microphone: nil)
         capture.receive([quiet], at: 0.1)

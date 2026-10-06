@@ -422,14 +422,14 @@ final class Runner {
         }
         do {
             let raw = try await transcriber.transcribe(audio: audio.stream, configuration: configuration, onReady: {}, onPartial: { text in
-                let formatted = DictationFormatter.format(text, language: "en")
+                let formatted = DictationFormatter.format(text, language: "en", keywords: configuration.keywords)
                 partials.latest = formatted
                 correction.preview(formatted)
             })
             result.raw = raw
             result.partialAtRelease = partials.atRelease
             result.lastPartial = partials.latest
-            result.formatted = DictationFormatter.format(raw, language: "en")
+            result.formatted = DictationFormatter.format(raw, language: "en", keywords: configuration.keywords)
             let requestsBeforeFinal = recorder.requestCount
             result.pasted = result.formatted.isEmpty ? "" : await correction.finish(result.formatted)
             timeline.mark("paste")

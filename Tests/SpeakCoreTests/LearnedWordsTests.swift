@@ -20,6 +20,23 @@ final class LearnedWordsTests: XCTestCase {
         XCTAssertEqual(learned.apply(to: "Reviewsers moved to post  gres."), "Users moved to Postgres.")
     }
 
+    func testNeverRewritesAddressesCodeOrExactQuotations() {
+        let learned = LearnedWords([LearnedWord(term: "Supabase", replaces: ["Superbase"])])
+        for literal in [
+            "https://superbase.com/docs", "superbase@example.com", "superbase.dev", "src/superbase.swift",
+            "my_superbase_key", "`Superbase`", "\"Superbase\"", "“Superbase”", "```\nSuperbase\n```",
+            #""say \"Superbase\"""#
+        ] {
+            XCTAssertEqual(learned.apply(to: "Superbase mentions \(literal)."), "Supabase mentions \(literal).", literal)
+        }
+    }
+
+    func testLearnedPhrasesDoNotCrossLinesOrParagraphs() {
+        let learned = LearnedWords([LearnedWord(term: "Postgres", replaces: ["post gres"])])
+        XCTAssertEqual(learned.apply(to: "post\ngres and post\n\ngres"), "post\ngres and post\n\ngres")
+        XCTAssertEqual(learned.apply(to: "post\tgres and post  gres"), "Postgres and Postgres")
+    }
+
     func testMergesEveryWayAWordWasMisheard() {
         var learned = LearnedWords()
         learned.learn([LearnedWord(term: "Vercel", replaces: ["Versel"])])

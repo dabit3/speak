@@ -52,14 +52,16 @@ public struct LearnedWords: Codable, Equatable, Sendable {
         }
         guard !text.isEmpty, !replacements.isEmpty else { return text }
         let alternatives = replacements.keys.sorted { $0.count > $1.count }.map { form in
-            form.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: "\\s+")
+            form.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: "[\\p{Zs}\\t]+")
         }
         let pattern = "(?<![\\p{L}\\p{N}])(?:" + alternatives.joined(separator: "|") + ")(?![\\p{L}\\p{N}])"
         guard let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return text }
         let string = text as NSString
+        let literals = TranscriptLiterals.ranges(in: text)
         var result = ""
         var cursor = 0
         for match in expression.matches(in: text, range: NSRange(location: 0, length: string.length)) {
+            guard !literals.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { continue }
             let found = string.substring(with: match.range)
             guard var replacement = replacements[Self.key(found)] else { continue }
             if found.first?.isUppercase == true, let first = replacement.first, first.isLowercase {

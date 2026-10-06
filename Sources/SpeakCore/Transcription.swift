@@ -37,9 +37,10 @@ public struct TranscriptionConfiguration {
     public var keywords: [String] {
         var seen = Set<String>()
         return vocabulary.components(separatedBy: CharacterSet(charactersIn: ",\n\r"))
-            .map { $0.replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "").trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
-            .prefix(100).map { String($0.prefix(100)) }
+            .map { $0.replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "").split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+            .map { String($0.prefix(100)).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+            .prefix(100).map { $0 }
     }
 
     public func sessionMessage() throws -> Data {

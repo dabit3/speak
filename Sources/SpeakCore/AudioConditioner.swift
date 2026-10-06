@@ -17,7 +17,7 @@ public struct AudioConditioner {
     public private(set) var peak: Float = 0
     public private(set) var gain: Float = 1
     public private(set) var samples = 0
-    private var quietFrames = 0
+    private var quietSamples = 0
     private var speechFrames = 0
     private var channelLevels: [Float] = []
     private var speechLevel: Float?
@@ -29,7 +29,7 @@ public struct AudioConditioner {
 
     public var heardSound: Bool { peak >= Self.silenceThreshold }
     public var duration: TimeInterval { Double(samples) / Self.sampleRate }
-    public var trailingQuiet: TimeInterval { Double(quietFrames * Self.frameLength) / Self.sampleRate }
+    public var trailingQuiet: TimeInterval { Double(quietSamples) / Self.sampleRate }
 
     public mutating func process(_ channels: [[Float]]) -> (audio: Data, level: Float) {
         let mono = mix(channels)
@@ -68,6 +68,10 @@ public struct AudioConditioner {
             guard weight > 0 else { continue }
             for index in 0..<count { mono[index] += channel[index] * weight }
         }
+        if count >= Self.frameLength, let strongest = levels.indices.max(by: { levels[$0] < levels[$1] }),
+           levels[strongest] > Self.silenceThreshold, Self.rms(mono[...]) < levels[strongest] * 0.1 {
+            return Array(channels[strongest].prefix(count))
+        }
         return mono
     }
 
@@ -79,9 +83,9 @@ public struct AudioConditioner {
         if level > max(noiseFloor * Self.speechMargin, Self.speechFloor) {
             speechLevel = max(level, (speechLevel ?? 0) * Self.speechDecay)
             speechFrames += 1
-            quietFrames = 0
+            quietSamples = 0
         } else {
-            quietFrames += 1
+            quietSamples += frame.count
         }
         var next: Float = 1
         if let speechLevel, speechFrames >= Self.speechOnsetFrames { next = min(Self.maximumGain, max(1, Self.targetLevel / speechLevel)) }

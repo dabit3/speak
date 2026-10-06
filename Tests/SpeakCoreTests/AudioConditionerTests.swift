@@ -65,6 +65,35 @@ final class AudioConditionerTests: XCTestCase {
         XCTAssertEqual(Signal.rms(output), Signal.rms(voice), accuracy: 0.001)
     }
 
+    func testInvertedCopiesOfAMicrophoneDoNotCancelSpeech() {
+        let voice = Signal.speech(peak: 0.2, seconds: 0.5)
+        for channels in [[voice, voice.map { -$0 }], [Signal.silence(0.5), voice, voice.map { -$0 }, Signal.silence(0.5)]] {
+            var conditioner = AudioConditioner()
+            let output = Signal.decode(conditioner.process(channels).audio)
+            XCTAssertTrue(conditioner.heardSound)
+            XCTAssertEqual(Signal.rms(output), Signal.rms(voice), accuracy: 0.001)
+        }
+    }
+
+    func testUnrelatedMicrophonesKeepTheirExistingMix() {
+        let first = Signal.speech(peak: 0.2, seconds: 0.5)
+        let second = Signal.tone(rms: 0.15, seconds: 0.5, frequency: 631)
+        let a = Signal.rms(first), b = Signal.rms(second)
+        let expected = zip(first, second).map { ($0 * a + $1 * b) / (a + b) }
+        var conditioner = AudioConditioner()
+        let output = Signal.decode(conditioner.process([first, second]).audio)
+        XCTAssertLessThanOrEqual(zip(output, expected).map { abs($0 - $1) }.max() ?? 1, 1 / Float(Int16.max))
+    }
+
+    func testQuietDurationCountsSamplesInsteadOfRoundingUpBuffers() {
+        var conditioner = AudioConditioner()
+        for count in [120, 1, 239, 241, 1024] {
+            _ = conditioner.process([[Float](repeating: 0, count: count)])
+        }
+        XCTAssertEqual(conditioner.trailingQuiet, Double(1625) / AudioConditioner.sampleRate, accuracy: 0.000001)
+        XCTAssertEqual(conditioner.duration, conditioner.trailingQuiet, accuracy: 0.000001)
+    }
+
     func testLeavesNormalSpeechUnchanged() {
         var conditioner = AudioConditioner()
         let input = Signal.noise(rms: 0.0003, seconds: 0.3) + Signal.add(Signal.speech(peak: 0.2, seconds: 1), Signal.noise(rms: 0.0003, seconds: 1, seed: 2))

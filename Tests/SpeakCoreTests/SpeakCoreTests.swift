@@ -98,6 +98,22 @@ final class TranscriptionTests: XCTestCase {
         XCTAssertEqual(config.keywords, ["Swift", "API"])
     }
 
+    func testVocabularyDeduplicatesCaseAndWhitespaceWithoutLosingSpelling() {
+        let config = TranscriptionConfiguration(language: "en", delay: .low, vocabulary: "<OpenAI>  Platform, openai\tplatform, OPENAI Platform, Café, CAFÉ, Vercel")
+        XCTAssertEqual(config.keywords, ["OpenAI Platform", "Café", "Vercel"])
+    }
+
+    func testVocabularyLimitsApplyAfterNormalizationAndTruncation() {
+        let duplicates = (1...110).map { "OpenAI" + String(repeating: " ", count: $0) + "Platform" }
+        let long = String(repeating: "x", count: 100)
+        let vocabulary = (duplicates + ["Vercel", long + "a", long + "b"]).joined(separator: ",")
+        let config = TranscriptionConfiguration(language: "en", delay: .low, vocabulary: vocabulary)
+        XCTAssertEqual(config.keywords, ["OpenAI Platform", "Vercel", long])
+        let many = TranscriptionConfiguration(language: "en", delay: .low, vocabulary: (0..<120).map { "Term\($0)" }.joined(separator: ","))
+        XCTAssertEqual(many.keywords.count, 100)
+        XCTAssertEqual(many.keywords.last, "Term99")
+    }
+
     func testFinalReplacesPartialAndMatchesCommittedItem() throws {
         var accumulator = TranscriptAccumulator()
         _ = try accumulator.consume(event("conversation.item.input_audio_transcription.delta", ["item_id": "a", "delta": "helo"]))

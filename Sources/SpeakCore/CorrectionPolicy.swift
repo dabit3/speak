@@ -8,8 +8,8 @@ public enum CorrectionPolicy {
         text.count <= maximumCharacters && words(text).count >= 3 && !text.contains("`")
     }
 
-    public static func revisesItself(_ text: String) -> Bool {
-        let text = normalize(text)
+    public static func revisesItself(_ text: String, keywords: [String] = []) -> Bool {
+        let text = normalize(TranscriptLiterals.hiding(in: text, keywords: keywords))
         return revisionCues.contains { !matches($0, in: text).isEmpty }
     }
 
@@ -20,11 +20,13 @@ public enum CorrectionPolicy {
         guard isEligible(original), !corrected.contains("```") else { return nil }
         let preface = #"(?i)^(?:sure[,!:]|here(?:'s| is)\b|(?:corrected(?: transcript| text)?|transcript)\s*:)"#
         if matches(preface, in: original).isEmpty && !matches(preface, in: corrected).isEmpty { return nil }
-        let revising = revisesItself(original)
-        let source = DictationFormatter.canonicalNumbers(original), result = DictationFormatter.canonicalNumbers(corrected)
-        let sourceDigits = source.filter(\.isNumber), resultDigits = result.filter(\.isNumber)
+        let revising = revisesItself(original, keywords: keywords)
+        let breaks = matches(#"\n+"#, in: original.replacingOccurrences(of: "\r\n", with: "\n"))
+        if !revising, !breaks.isEmpty, breaks != matches(#"\n+"#, in: corrected.replacingOccurrences(of: "\r\n", with: "\n")) { return nil }
+        let source = DictationFormatter.canonicalNumbers(original, keywords: keywords), result = DictationFormatter.canonicalNumbers(corrected, keywords: keywords)
+        let sourceValues = numericValues(source), resultValues = numericValues(result)
         let terms = Set(keywords.map(normalize))
-        guard revising ? isSubsequence(resultDigits, of: sourceDigits) : resultDigits == sourceDigits,
+        guard revising ? isSubsequence(resultValues, of: sourceValues) : resultValues == sourceValues,
               fits(protectedLiterals(corrected, terms: terms), within: protectedLiterals(original, terms: terms), exactly: !revising),
               fits(protectedWords(corrected), within: protectedWords(original), exactly: !revising) else { return nil }
         let sourceWords = words(original)
@@ -146,11 +148,51 @@ public enum CorrectionPolicy {
         return true
     }
 
-    private static func isSubsequence(_ part: String, of whole: String) -> Bool {
+    private static func isSubsequence(_ part: [String], of whole: [String]) -> Bool {
         var remaining = whole.makeIterator()
-        return part.allSatisfy { character in
-            while let next = remaining.next() { if next == character { return true } }
+        return part.allSatisfy { value in
+            while let next = remaining.next() { if next == value { return true } }
             return false
+        }
+    }
+
+    private static let units: [String: String] = {
+        let groups = [
+            ["$", "dollar", "dollars"], ["€", "euro", "euros"], ["£"], ["¥", "yen"], ["cent", "cents"], ["pound", "pounds"], ["bucks"],
+            ["%", "percent"], ["min", "minute", "minutes", "mins"], ["hr", "hour", "hours", "hrs"], ["sec", "second", "seconds", "secs"], ["s"], ["m"], ["h"],
+            ["ms", "millisecond", "milliseconds"], ["day", "days"], ["week", "weeks"], ["month", "months"], ["year", "years"],
+            ["decade", "decades"], ["mile", "miles"], ["km", "kilometer", "kilometers", "kilometre", "kilometres"],
+            ["meter", "meters", "metre", "metres"], ["ft", "foot", "feet"], ["inch", "inches"], ["yard", "yards"],
+            ["lb", "lbs"], ["kg", "kilo", "kilos", "kilogram", "kilograms"], ["g", "gram", "grams"], ["mg", "milligram", "milligrams"],
+            ["oz", "ounce", "ounces"], ["liter", "liters", "litre", "litres"], ["gallon", "gallons"], ["degree", "degrees"],
+            ["gb", "gigabyte", "gigabytes", "gigs"], ["mb", "megabyte", "megabytes"], ["kb", "kilobyte", "kilobytes"],
+            ["tb", "terabyte", "terabytes"], ["mph"], ["times"]
+        ]
+        return Dictionary(uniqueKeysWithValues: groups.flatMap { group in group.map { ($0, group[0]) } })
+    }()
+    private static let unitNames = units.keys.sorted { $0.count > $1.count }
+    private static let quantities: NSRegularExpression = {
+        let number = #"[+\-−]?(?:[$€£¥][ \t]*)?[+\-−]?(?:\d+(?:,\d{3})*(?:[.:/]\d+)*|\.\d+)"#
+        let scale = #"(?:[ \t]+(?:thousand|million|billion|trillion)\b)?"#
+        let suffix = #"(?:[ \t]*(?:%|[$€£¥]|a\.?m\.?\b|p\.?m\.?\b)|[ \t]*(?:"# + unitNames.map(NSRegularExpression.escapedPattern).joined(separator: "|") + #")\b)?"#
+        return try! NSRegularExpression(pattern: number + scale + suffix, options: .caseInsensitive)
+    }()
+
+    private static func numericValues(_ text: String) -> [String] {
+        let string = text as NSString
+        return quantities.matches(in: text, range: NSRange(location: 0, length: string.length)).map { match in
+            var value = normalize(string.substring(with: match.range)).filter { !$0.isWhitespace && $0 != "," }
+                .replacingOccurrences(of: "−", with: "-")
+                .replacingOccurrences(of: "a.m", with: "am")
+                .replacingOccurrences(of: "p.m", with: "pm")
+            if value.hasSuffix(".") { value.removeLast() }
+            for unit in unitNames where value.hasSuffix(unit) {
+                let amount = String(value.dropLast(unit.count)), normalized = units[unit]!
+                value = "$€£¥".contains(normalized) ? (amount.contains(normalized) ? amount : normalized + amount) : amount + normalized
+                break
+            }
+            for symbol in ["$", "€", "£", "¥"] { value = value.replacingOccurrences(of: "-" + symbol, with: symbol + "-") }
+            return value.replacingOccurrences(of: #"(?<![\d.])\.(?=\d)"#, with: "0.", options: .regularExpression)
         }
     }
 

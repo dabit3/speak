@@ -103,6 +103,57 @@ final class DictationFormatterTests: XCTestCase {
         ])
     }
 
+    func testUnderstandsExplicitParenthesesAndBracketCommands() {
+        assertFormats([
+            ("Notes open parentheses optional close parentheses.", "Notes (optional)."),
+            ("Items open bracket pending close bracket.", "Items [pending]."),
+            ("Use an open bracket here.", "Use an open bracket here."),
+            ("Use the close parentheses command.", "Use the close parentheses command.")
+        ])
+    }
+
+    func testKeepsAlreadyQuotedTextAndCodeLiteral() {
+        assertFormats([
+            (#"The command is "new line"."#, #"The command is "new line"."#),
+            ("She said “um, twenty five comma period”.", "She said “um, twenty five comma period”."),
+            (#"Keep "Um,  twenty five." exactly."#, #"Keep "Um,  twenty five." exactly."#),
+            (#"Keep "say \"twenty five\"" exactly."#, #"Keep "say \"twenty five\"" exactly."#),
+            ("Keep `one hundred` and invite twenty five users.", "Keep `one hundred` and invite 25 users."),
+            (#"The value is "twenty five" comma not thirty."#, #"The value is "twenty five", not 30."#),
+            ("Use `um\nnew line\ntwenty five` exactly.", "Use `um\nnew line\ntwenty five` exactly."),
+            (#"Keep "twenty five"#, #"Keep "twenty five"#),
+            ("Don't change John's twenty five items.", "Don't change John's 25 items.")
+        ])
+    }
+
+    func testProtectsExactVocabularyWithoutDisablingLowercaseCommands() {
+        let keywords = ["Comma", "Twenty Four", "New Line", "New", "New Um"]
+        XCTAssertEqual(DictationFormatter.format("Send it to Comma comma please.", keywords: keywords), "Send it to Comma, please.")
+        XCTAssertEqual(DictationFormatter.format("Twenty Four shipped twenty five updates.", keywords: keywords), "Twenty Four shipped 25 updates.")
+        XCTAssertEqual(DictationFormatter.format("New Um shipped it.", keywords: keywords), "New Um shipped it.")
+        XCTAssertEqual(DictationFormatter.format("First item new line second item.", keywords: keywords), "First item\nSecond item.")
+        XCTAssertEqual(DictationFormatter.format("I have twenty four items.", keywords: keywords), "I have 24 items.")
+        XCTAssertEqual(DictationFormatter.format("Someone needs twenty five items.", keywords: ["one"]), "Someone needs 25 items.")
+    }
+
+    func testVocabularyStillParticipatesInExplicitSpokenAddresses() {
+        let keywords = ["Nader", "Example", "Speak"]
+        XCTAssertEqual(DictationFormatter.format("Email Nader at Example dot com.", keywords: keywords), "Email nader@example.com.")
+        XCTAssertEqual(DictationFormatter.format("Visit Speak dot app for details.", keywords: keywords), "Visit speak.app for details.")
+        XCTAssertEqual(DictationFormatter.format("Email Nader@ example.com.", keywords: keywords), "Email Nader@example.com.")
+        let quoted = #"Keep "Nader at Example dot com" exactly."#
+        XCTAssertEqual(DictationFormatter.format(quoted, keywords: keywords), quoted)
+    }
+
+    func testFormatsNumericClockWithAnExplicitMeridiem() {
+        assertFormats([
+            ("Meet me at 3 30 pm.", "Meet me at 3:30 PM."),
+            ("The alarm is set for 9 05 a.m.", "The alarm is set for 9:05 a.m."),
+            ("Send 3 30 minute samples.", "Send 3 30 minute samples."),
+            ("The numbers are 3 30 and 5 20.", "The numbers are 3 30 and 5 20.")
+        ])
+    }
+
     func testKeepsPunctuationWordsThatArePartOfTheSentence() {
         assertFormats([
             ("The trial period ends Friday.", "The trial period ends Friday."),

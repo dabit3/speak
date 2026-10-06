@@ -87,7 +87,7 @@ public final class SmartCorrection {
             pair.continuation.yield(result)
             pair.continuation.finish()
         }
-        let wait = CorrectionPolicy.revisesItself(text) ? max(finalWait, revisionWait) : finalWait
+        let wait = CorrectionPolicy.revisesItself(text, keywords: context.keywords) ? max(finalWait, revisionWait) : finalWait
         let deadline = Task {
             do { try await Task.sleep(for: wait) } catch { return }
             pair.continuation.yield(text)

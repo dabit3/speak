@@ -59,3 +59,15 @@ Before claiming live accuracy or latency, test with a real microphone and an aut
 If Accessibility stays enabled in System Settings but Speak denies access, inspect macOS logs for a code requirement mismatch. A local rebuild can cause this mismatch. Get user approval before resetting permissions. Quit Speak, run `tccutil reset Accessibility local.speak.dictation`, and reopen the unchanged app. Ask the user to click Allow in Preferences and enable Speak again in System Settings. Do not rebuild between the reset and user approval. Do not reset other apps or other permission services.
 
 Speak uses `local.speak.dictation` for its bundle identifier and Keychain service. A differently named predecessor does not share Speak preferences, permissions, or its Keychain entry. Ask the user to enter their API key and grant microphone and Accessibility permissions in Speak. Do not delete or read credentials from an older app during migration.
+
+Audio channels can carry inverted copies of the same sound. Mixing these copies can erase speech. `AudioConditioner` falls back to the strongest channel when the mixed level falls below 10% of its level. It does this only for buffers of at least 240 samples. Other inputs keep the existing mix. Count trailing silence from samples, not rounded frames.
+
+`DictationFormatter` receives the same vocabulary keywords as transcription. Exact matches, including letter case, protect vocabulary names from punctuation, filler, and number rules. Vocabulary names can still form spoken email addresses and domains. Lowercase punctuation commands still work when the vocabulary contains a capitalized name.
+
+Preserve existing quotations, code, addresses, and identifiers through formatting and learned replacements. Learned phrases must not cross line breaks. The formatter also accepts “open parentheses,” “close parentheses,” “open bracket,” and “close bracket.”
+
+Normalize spaces in vocabulary hints before applying the limits. Ignore letter case when removing duplicate hints, but keep the first spelling. Remove duplicates after truncating each hint to 100 characters, then keep the first 100 hints.
+
+Compare whole quantities, not concatenated digits. Keep decimal points, signs, currency, units, scale words, and AM/PM distinctions. Allow known spelling equivalents, such as “5 kilograms” and “5 kg.” With a spoken revision, remaining quantities must follow their original order. Quoted text and exact vocabulary names must not activate revision cues. Without a revision cue, preserve existing line and paragraph breaks.
+
+If Swift reports stale cache paths outside this checkout, use a fresh `--scratch-path` under `.build/`. Do not delete files from another checkout to remove these warnings. Run `swift build -c release` to build without replacing the signed app bundle.

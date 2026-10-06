@@ -1,10 +1,10 @@
 import Foundation
 
 public enum DictationFormatter {
-    public static func format(_ text: String, language: String = "en") -> String {
+    public static func format(_ text: String, language: String = "en", keywords: [String] = []) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard supports(language) else { return trimmed }
-        var pieces = Piece.split(trimmed)
+        var pieces = Piece.split(trimmed, keywords: keywords)
         applyCommands(&pieces)
         removeDisfluencies(&pieces)
         joinAddresses(&pieces)
@@ -12,8 +12,8 @@ public enum DictationFormatter {
         return Piece.join(pieces)
     }
 
-    static func canonicalNumbers(_ text: String) -> String {
-        var pieces = Piece.split(text)
+    static func canonicalNumbers(_ text: String, keywords: [String] = []) -> String {
+        var pieces = Piece.split(text, keywords: keywords)
         SpokenNumbers.apply(to: &pieces, style: .canonical)
         return Piece.join(pieces)
     }
@@ -46,8 +46,12 @@ public enum DictationFormatter {
         (["unquote"], .close("\"")),
         (["open", "paren"], .open("(")),
         (["open", "parenthesis"], .open("(")),
+        (["open", "parentheses"], .open("(")),
         (["close", "paren"], .close(")")),
-        (["close", "parenthesis"], .close(")"))
+        (["close", "parenthesis"], .close(")")),
+        (["close", "parentheses"], .close(")")),
+        (["open", "bracket"], .open("[")),
+        (["close", "bracket"], .close("]"))
     ]
 
     private static let determiners: Set<String> = [
@@ -70,6 +74,7 @@ public enum DictationFormatter {
     ]
 
     private static func command(at index: Int, in pieces: [Piece]) -> (length: Int, mark: Mark)? {
+        guard !pieces[index].isLiteral else { return nil }
         let first = pieces[index].word
         for (words, mark) in commands where words[0] == first && index + words.count <= pieces.count {
             let range = index..<(index + words.count)
@@ -127,8 +132,9 @@ public enum DictationFormatter {
         var index = 0
         while index < pieces.count {
             let piece = pieces[index]
+            guard !piece.isLiteral else { index += 1; continue }
             let filler = fillers.contains(piece.word) && piece.core != "ER"
-            let stutter = !filler && stutters.contains(piece.word) && index + 1 < pieces.count && pieces[index + 1].word == piece.word
+            let stutter = !filler && stutters.contains(piece.word) && index + 1 < pieces.count && !pieces[index + 1].isLiteral && pieces[index + 1].word == piece.word
                 && (piece.trail.isEmpty || piece.trail == ",") && pieces[index + 1].lead.isEmpty && pieces[index + 1].gap == " "
             guard filler || stutter else { index += 1; continue }
             let opensSentence = pieces.startsSentence(index)
@@ -160,13 +166,16 @@ public enum DictationFormatter {
     ]
 
     private static func joinAddresses(_ pieces: inout [Piece]) {
+        func connects(_ index: Int) -> Bool {
+            pieces.connects(index, includingLiterals: true) && !pieces[index].isVerbatim && !pieces[index + 1].isVerbatim
+        }
         func label(_ index: Int) -> Bool {
             let core = pieces[index].core
-            return pieces[index].isWord && core.first != "@" && core.last != "@" && core.filter({ $0 == "@" }).count <= 1
+            return !pieces[index].isVerbatim && pieces[index].isWord && core.first != "@" && core.last != "@" && core.filter({ $0 == "@" }).count <= 1
                 && core.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "@" }
         }
         func linked(_ index: Int, by word: String) -> Bool {
-            index >= 2 && pieces[index - 1].word == word && label(index - 2) && pieces.connects(index - 2) && pieces.connects(index - 1)
+            index >= 2 && pieces[index - 1].word == word && label(index - 2) && connects(index - 2) && connects(index - 1)
         }
         func spelled(_ range: ClosedRange<Int>) -> String {
             pieces[range].map { $0.word == "dot" ? "." : $0.word }.joined()
@@ -174,10 +183,10 @@ public enum DictationFormatter {
         var index = 1
         while index + 1 < pieces.count {
             guard pieces[index].word == "dot", domains.contains(pieces[index + 1].word), label(index - 1),
-                  pieces.connects(index - 1), pieces.connects(index) else { index += 1; continue }
+                  connects(index - 1), connects(index) else { index += 1; continue }
             var start = index - 1, end = index + 1
             while linked(start, by: "dot") { start -= 2 }
-            while end + 2 < pieces.count, pieces[end + 1].word == "dot", label(end + 2), pieces.connects(end), pieces.connects(end + 1) { end += 2 }
+            while end + 2 < pieces.count, pieces[end + 1].word == "dot", label(end + 2), connects(end), connects(end + 1) { end += 2 }
             var address = spelled(start...end)
             if !address.contains("@"), linked(start, by: "at"), !notMailboxes.contains(pieces[start - 2].word) {
                 var mailbox = start - 2
@@ -191,7 +200,7 @@ public enum DictationFormatter {
         index = 0
         while index + 1 < pieces.count {
             let mailbox = pieces[index].core, domain = pieces[index + 1].core
-            if mailbox.count > 1, mailbox.last == "@", !mailbox.dropLast().contains("@"), pieces.connects(index),
+            if mailbox.count > 1, mailbox.last == "@", !mailbox.dropLast().contains("@"), !pieces[index].isVerbatim, pieces.connects(index, includingLiterals: true),
                domain.wholeMatch(of: #/[\p{L}\p{N}_-]+(\.[\p{L}\p{N}_-]+)*\.[\p{L}]{2,}/#) != nil {
                 pieces.replace(index...(index + 1), with: mailbox + domain)
             }
@@ -200,21 +209,52 @@ public enum DictationFormatter {
     }
 }
 
+enum TranscriptLiterals {
+    private static let expression = try! NSRegularExpression(pattern: #"`[^`]*(?:`|$)|"(?:[^"\\]|\\[\s\S])*(?:"|$)|“[^”]*(?:”|$)|‘[^’]*(?:’|$)|(?i:\bhttps?://)[^\s<>"“”`]+|[\w.+-]+@[\w.-]+\.[\w]+|\b[\p{L}_][\p{L}\p{N}_-]*\.[\p{L}]{2,}(?:[./][\p{L}\p{N}_./-]*)?|\b[\p{L}_][\p{L}\p{N}]*[_/][\p{L}\p{N}_./-]+"#)
+
+    static func ranges(in text: String, keywords: [String] = []) -> [NSRange] {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return expression.matches(in: text, range: range).map(\.range) + vocabularyRanges(in: text, keywords: keywords)
+    }
+
+    static func vocabularyRanges(in text: String, keywords: [String]) -> [NSRange] {
+        let terms = keywords.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map {
+            $0.split(whereSeparator: \.isWhitespace).map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: "[\\p{Zs}\\t]+")
+        }.sorted { $0.count > $1.count }
+        guard !terms.isEmpty,
+              let vocabulary = try? NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}_])(?:" + terms.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])") else { return [] }
+        return vocabulary.matches(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)).map(\.range)
+    }
+
+    static func hiding(in text: String, keywords: [String] = []) -> String {
+        let result = NSMutableString(string: text)
+        for range in ranges(in: text, keywords: keywords) {
+            result.replaceCharacters(in: range, with: String(repeating: "\u{fffc}", count: range.length))
+        }
+        return result as String
+    }
+}
+
 struct Piece {
     var gap: String
     var lead: String
     var core: String { didSet { word = Self.normalized(core) } }
     var trail: String
+    let isLiteral: Bool
+    let isVerbatim: Bool
     private(set) var word: String
 
     private static let opening: Set<Character> = ["(", "[", "{", "\"", "“", "‘", "'", "¿", "¡"]
     private static let closing: Set<Character> = [".", ",", "!", "?", ";", ":", ")", "]", "}", "\"", "”", "’", "'", "…"]
+    private static let tokens = try! NSRegularExpression(pattern: #"\S+"#)
 
-    init(gap: String, lead: String, core: String, trail: String) {
+    init(gap: String, lead: String, core: String, trail: String, isLiteral: Bool = false, isVerbatim: Bool = false) {
         self.gap = gap
         self.lead = lead
         self.core = core
         self.trail = trail
+        self.isLiteral = isLiteral
+        self.isVerbatim = isVerbatim
         word = Self.normalized(core)
     }
 
@@ -229,26 +269,22 @@ struct Piece {
     }
 
     mutating func capitalize() {
-        guard let first = core.first, first.isLowercase else { return }
+        guard !isLiteral, let first = core.first, first.isLowercase else { return }
         core = first.uppercased() + core.dropFirst()
     }
 
-    static func split(_ text: String) -> [Piece] {
-        var pieces: [Piece] = []
-        var gap = "", chunk = ""
-        for character in text + " " {
-            if character.isWhitespace {
-                if !chunk.isEmpty {
-                    pieces.append(Piece(gap: gap, chunk: chunk))
-                    chunk = ""
-                    gap = ""
-                }
-                gap.append(character)
-            } else {
-                chunk.append(character)
-            }
+    static func split(_ text: String, keywords: [String] = []) -> [Piece] {
+        let string = text as NSString
+        let literals = TranscriptLiterals.ranges(in: text)
+        let vocabulary = TranscriptLiterals.vocabularyRanges(in: text, keywords: keywords)
+        var cursor = 0
+        return tokens.matches(in: text, range: NSRange(location: 0, length: string.length)).map { match in
+            let gap = string.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            cursor = NSMaxRange(match.range)
+            let verbatim = literals.contains { NSIntersectionRange($0, match.range).length > 0 }
+            let literal = verbatim || vocabulary.contains { NSIntersectionRange($0, match.range).length > 0 }
+            return Piece(gap: gap, chunk: string.substring(with: match.range), isLiteral: literal, isVerbatim: verbatim)
         }
-        return pieces
     }
 
     static func join(_ pieces: [Piece]) -> String {
@@ -271,7 +307,7 @@ struct Piece {
 }
 
 extension Piece {
-    init(gap: String, chunk: String) {
+    init(gap: String, chunk: String, isLiteral: Bool = false, isVerbatim: Bool = false) {
         let breaks = gap.filter(\.isNewline).count
         var lead = "", trail = "", core = Substring(chunk)
         while core.count > 1, let first = core.first, Self.opening.contains(first) {
@@ -282,15 +318,16 @@ extension Piece {
             trail.insert(last, at: trail.startIndex)
             core.removeLast()
         }
-        self.init(gap: breaks > 1 ? "\n\n" : breaks == 1 ? "\n" : " ", lead: lead, core: String(core), trail: trail)
+        self.init(gap: isLiteral ? gap : breaks > 1 ? "\n\n" : breaks == 1 ? "\n" : " ", lead: lead, core: String(core), trail: trail, isLiteral: isLiteral, isVerbatim: isVerbatim)
     }
 }
 
 extension Array where Element == Piece {
     func word(_ index: Int) -> String { indices.contains(index) ? self[index].word : "" }
 
-    func connects(_ index: Int) -> Bool {
+    func connects(_ index: Int, includingLiterals: Bool = false) -> Bool {
         index >= 0 && index + 1 < count && self[index].trail.isEmpty && self[index + 1].lead.isEmpty && self[index + 1].gap == " "
+            && (includingLiterals || (!self[index].isLiteral && !self[index + 1].isLiteral))
     }
 
     func startsSentence(_ index: Int) -> Bool {

@@ -17,6 +17,64 @@ final class CorrectionPolicyTests: XCTestCase {
         XCTAssertNil(CorrectionPolicy.accept("Send two items to the office.", candidate: "Send three items to the office."))
     }
 
+    func testProtectsNumericValuesNotJustTheirDigits() {
+        let cases = [
+            ("The cost is $1.50 per item.", "The cost is $150 per item."),
+            ("The temperature is -5 degrees today.", "The temperature is 5 degrees today."),
+            ("The rate is 1.5% per year.", "The rate is 15% per year."),
+            ("Send 1 box and 23 labels.", "Send 12 boxes and 3 labels."),
+            ("The meeting starts at 9 AM tomorrow.", "The meeting starts at 9 PM tomorrow."),
+            ("The budget is 5 million dollars.", "The budget is 5 billion dollars."),
+            ("The price is €50 per item.", "The price is $50 per item."),
+            ("The rate is .5 percent per year.", "The rate is 5 percent per year."),
+            ("The ratio is .5 today.", "The ratio is 5 today."),
+            ("The package weighs 5 kilograms today.", "The package weighs 5 grams today."),
+            ("The delivery takes 5 days total.", "The delivery takes 5 weeks total."),
+            ("The package weighs 5kg today.", "The package weighs 5g today."),
+            ("The delay is 5ms today.", "The delay is 5s today.")
+        ]
+        for (original, candidate) in cases {
+            XCTAssertNil(CorrectionPolicy.accept(original, candidate: candidate), "\(original) -> \(candidate)")
+        }
+    }
+
+    func testSelfCorrectionsCannotAssembleANewNumberFromOldDigits() {
+        XCTAssertNil(CorrectionPolicy.accept("Use 15, no wait, 20 units.", candidate: "Use 12 units."))
+        XCTAssertNil(CorrectionPolicy.accept("Use 25, no wait, 15 units.", candidate: "Use 5 units."))
+        XCTAssertEqual(CorrectionPolicy.accept("Use 15, no wait, 20 units.", candidate: "Use 20 units."), "Use 20 units.")
+    }
+
+    func testSelfCorrectionsCannotSwapQuantitiesBetweenSubjects() {
+        let original = "The shipment should contain exactly 15, no wait, 20 units for the first box and 3 units for the second box."
+        let swapped = "The shipment should contain exactly 3 units for the first box and 20 units for the second box."
+        let corrected = "The shipment should contain exactly 20 units for the first box and 3 units for the second box."
+        XCTAssertNil(CorrectionPolicy.accept(original, candidate: swapped))
+        XCTAssertEqual(CorrectionPolicy.accept(original, candidate: corrected), corrected)
+    }
+
+    func testStillAcceptsEquivalentMoneyPercentAndSignFormatting() {
+        let cases = [
+            ("The cost is $1,500 per item.", "The cost is 1500 dollars per item."),
+            ("The discount is fifty percent today.", "The discount is 50% today."),
+            ("The temperature is −5 degrees today.", "The temperature is -5 degrees today."),
+            ("The package weighs 5 kilograms today.", "The package weighs 5 kg today."),
+            ("The delivery takes five minutes today.", "The delivery takes 5 min today."),
+            ("The ratio is .5 today.", "The ratio is 0.5 today."),
+            ("The price is €50 per item.", "The price is 50 euros per item.")
+        ]
+        for (original, candidate) in cases {
+            XCTAssertEqual(CorrectionPolicy.accept(original, candidate: candidate), candidate)
+        }
+    }
+
+    func testQuotedRevisionCommandsDoNotRelaxCorrectionSafety() {
+        let original = "Keep 15 items and write \"scratch that\" below."
+        XCTAssertFalse(CorrectionPolicy.revisesItself(original))
+        XCTAssertFalse(CorrectionPolicy.revisesItself("The example says “no wait” in the notes."))
+        XCTAssertNil(CorrectionPolicy.accept(original, candidate: "Keep 5 items and write \"scratch that\" below."))
+        XCTAssertTrue(CorrectionPolicy.revisesItself("Keep 15, no wait, 20 items and write \"scratch that\" below."))
+    }
+
     func testRejectsChangedNegation() {
         XCTAssertNil(CorrectionPolicy.accept("Please do not merge this request.", candidate: "Please do merge this request."))
         XCTAssertNil(CorrectionPolicy.accept("We can’t deploy the service today.", candidate: "We can deploy the service today."))
@@ -116,6 +174,25 @@ final class CorrectionPolicyTests: XCTestCase {
         XCTAssertNil(CorrectionPolicy.accept("Please build it for IOS today.", candidate: "Please build it for iOS today."))
         XCTAssertEqual(CorrectionPolicy.accept("Please build it for IOS today.", candidate: "Please build it for iOS today.", keywords: ["iOS"]), "Please build it for iOS today.")
         XCTAssertEqual(CorrectionPolicy.accept("The deploy to Versel failed again today.", candidate: "The deploy to Vercel failed again today.", keywords: ["Vercel"]), "The deploy to Vercel failed again today.")
+    }
+
+    func testExplicitLineBreaksSurviveCorrection() {
+        let original = "Hello there,\n\nPlease merge this pool request."
+        let fixed = "Hello there,\n\nPlease merge this pull request."
+        XCTAssertEqual(CorrectionPolicy.accept(original, candidate: fixed), fixed)
+        XCTAssertNil(CorrectionPolicy.accept(original, candidate: "Hello there, please merge this pull request."))
+        XCTAssertNil(CorrectionPolicy.accept(original, candidate: "Hello there,\nPlease merge this pull request."))
+    }
+
+    func testVocabularyTermsAreNotMistakenForRevisionCues() {
+        let original = "We use Scratch That every day."
+        XCTAssertFalse(CorrectionPolicy.revisesItself(original, keywords: ["Scratch That"]))
+        XCTAssertNil(CorrectionPolicy.accept(original, candidate: "We use it every day.", keywords: ["Scratch That"]))
+    }
+
+    func testDoesNotConfuseWeightOrAnimalsWithMoney() {
+        XCTAssertNil(CorrectionPolicy.accept("The package weighs 5 pounds today.", candidate: "The package weighs £5 today."))
+        XCTAssertNil(CorrectionPolicy.accept("We saw 5 bucks in the field.", candidate: "We saw $5 in the field."))
     }
 
     func testDetectsSelfCorrectionCues() {

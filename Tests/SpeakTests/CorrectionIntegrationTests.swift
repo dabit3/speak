@@ -103,6 +103,23 @@ final class CorrectionIntegrationTests: XCTestCase {
         XCTAssertEqual(fixture.pasteboard.string(forType: .string), "We have 25 users, right?")
     }
 
+    @MainActor func testUnsafeNumberCorrectionFallsBackToFormattedDictation() async {
+        let service = AppCorrectionStub(corrected: "The cost is $150 per item.")
+        let fixture = makeFixture(service: service)
+        defer { fixture.model.shutdown(); fixture.pasteboard.releaseGlobally(); fixture.defaults.removePersistentDomain(forName: fixture.suite) }
+        let spoken = "The cost is one point five zero dollars per item."
+        let formatted = "The cost is $1.50 per item."
+        fixture.model.phase = .listening
+        fixture.model.receivePartial(spoken)
+        XCTAssertEqual(fixture.model.partial, formatted)
+        fixture.model.finish()
+        await fixture.model.processTranscript(spoken)
+        XCTAssertEqual(fixture.model.lastTranscript, formatted)
+        XCTAssertEqual(fixture.model.lastOriginalTranscript, spoken)
+        XCTAssertEqual(fixture.pasteboard.string(forType: .string), formatted)
+        XCTAssertEqual(fixture.model.phase, .success)
+    }
+
     @MainActor func testFillerOnlyTranscriptIsNotPasted() async {
         let fixture = makeFixture()
         defer { fixture.model.shutdown(); fixture.pasteboard.releaseGlobally(); fixture.defaults.removePersistentDomain(forName: fixture.suite) }

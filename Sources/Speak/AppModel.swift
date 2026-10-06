@@ -250,7 +250,7 @@ final class AppModel: ObservableObject {
 
     func receivePartial(_ text: String) {
         guard phase.isBusy else { return }
-        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language))
+        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language, keywords: preferences.configuration.keywords))
         partial = formatted
         if preferences.smartCorrectionEnabled { correction?.preview(formatted) }
     }
@@ -258,7 +258,7 @@ final class AppModel: ObservableObject {
     func processTranscript(_ text: String) async {
         guard phase == .finishing else { return }
         let id = takeID
-        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language))
+        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language, keywords: preferences.configuration.keywords))
         guard !formatted.isEmpty else {
             fail(DictationError.noSpeech)
             return

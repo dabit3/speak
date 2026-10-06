@@ -47,6 +47,7 @@ enum SpokenNumbers {
     }
 
     private static func expand(_ piece: Piece) -> [Piece] {
+        guard !piece.isLiteral else { return [piece] }
         let parts = piece.core.split(separator: "-").map(String.init)
         guard parts.count == 2, tens[parts[0].lowercased()] != nil else { return [piece] }
         let second = parts[1].lowercased()
@@ -108,6 +109,7 @@ enum SpokenNumbers {
         private func next(after end: Int) -> String { connects(end - 1) ? word(end) : "" }
 
         private func match(at index: Int) -> (ClosedRange<Int>, String)? {
+            guard !pieces[index].isLiteral else { return nil }
             if let date = date(at: index) { return date }
             if style == .display, pieces[index].core.first?.isUppercase == true, !pieces.startsSentence(index) { return nil }
             if let (end, text) = clock(at: index) { return (index...(end - 1), text) }
@@ -212,13 +214,13 @@ enum SpokenNumbers {
                 (minutes, end, spokenMinutes) = (value, after, isSpoken)
                 spoken = spoken || isSpoken
             }
-            guard spoken else { return nil }
             let time = minutes.map { "\(hour):" + String(format: "%02d", $0) } ?? "\(hour)"
             let suffix = next(after: end)
-            if ["am", "a.m", "pm", "p.m"].contains(suffix), !(suffix == "am" && word(end + 1) == "i") {
+            if spoken || minutes != nil, ["am", "a.m", "pm", "p.m"].contains(suffix), !(suffix == "am" && word(end + 1) == "i") {
                 let core = pieces[end].core
                 return (end + 1, time + " " + (core.contains(".") ? core.lowercased() : core.uppercased()))
             }
+            guard spoken else { return nil }
             if minutes == nil, suffix == "o'clock" { return (end + 1, "\(hour) o'clock") }
             if minutes != nil, SpokenNumbers.clockWords.contains(index > 0 && connects(index - 1) ? word(index - 1) : "") { return (end, time) }
             if let minutes, [15, 30, 45].contains(minutes), spokenHour, spokenMinutes, !SpokenNumbers.measures.contains(suffix),

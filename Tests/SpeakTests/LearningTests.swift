@@ -22,6 +22,25 @@ final class LearningTests: XCTestCase {
         XCTAssertEqual(model.lastOriginalTranscript, "Superbase handles authentication.")
     }
 
+    @MainActor func testVocabularyNamesSurviveFormattingInLiveAndFinalText() async {
+        let fixture = makeFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        model.preferences.smartCorrectionEnabled = false
+        model.preferences.vocabulary = "New Line, Twenty Four"
+        model.preferences.learned = LearnedWords([LearnedWord(term: "Comma")])
+        model.phase = .listening
+        model.receivePartial("New Line shipped twenty five updates")
+        XCTAssertEqual(model.partial, "New Line shipped 25 updates")
+        model.finish()
+        let raw = "New Line shipped twenty five updates. Twenty Four sent it to Comma."
+        let expected = "New Line shipped 25 updates. Twenty Four sent it to Comma."
+        await model.processTranscript(raw)
+        XCTAssertEqual(model.lastTranscript, expected)
+        XCTAssertEqual(fixture.pasteboard.string(forType: .string), expected)
+        XCTAssertEqual(model.lastOriginalTranscript, raw)
+    }
+
     @MainActor func testFixingTheLastDictationTeachesSpeak() {
         let fixture = makeFixture()
         defer { fixture.cleanUp() }
