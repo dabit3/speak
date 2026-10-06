@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SpeakCore
 import SwiftUI
 
 @main
@@ -66,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func pasteLast() { model.pasteLast() }
     @objc private func copyLast() { model.copyLast() }
     @objc private func copyOriginal() { model.copyOriginal() }
+    @objc private func fixLastDictation() { model.selectedTab = 0; model.beginFixingLastDictation(); openWindow() }
     @objc private func openPreferences() { model.selectedTab = 1; openWindow() }
     @objc private func quit() { NSApp.terminate(nil) }
 
@@ -81,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("Paste last dictation", action: #selector(pasteLast), to: menu)
         add("Copy last dictation", action: #selector(copyLast), to: menu)
         add("Copy original dictation", action: #selector(copyOriginal), to: menu)
+        add("Fix last dictation…", action: #selector(fixLastDictation), to: menu)
         menu.addItem(.separator())
         add("Preferences…", action: #selector(openPreferences), to: menu)
         add("Quit Speak", action: #selector(quit), to: menu)
@@ -135,6 +138,23 @@ enum PreviewRenderer {
         model.accessibilityGranted = true
         model.shortcutAvailable = true
         save(MainView(model: model), to: directory.appendingPathComponent("ready.png"))
+        preferences.learned = LearnedWords()
+        model.lastTranscript = "Superbase handles authentication, storage, and the database for this project."
+        model.beginFixingLastDictation()
+        model.fixingText = "Supabase handles authentication, storage, and the database for this project."
+        save(MainView(model: model), to: directory.appendingPathComponent("fix-dictation.png"))
+        model.saveFix()
+        save(MainView(model: model), to: directory.appendingPathComponent("fix-learned.png"))
+        model.learn(from: "The deploy to Versel failed again.", to: "The deploy to Vercel failed again.", announce: true)
+        for (position, name) in [(PillPosition.bottom, "learned"), (.right, "learned-right")] {
+            preferences.pillPosition = position
+            let size = PillController.size(for: position, idle: false, height: model.pillHeight)
+            save(PillView(model: model).frame(width: size.width, height: size.height), to: directory.appendingPathComponent("\(name).png"))
+        }
+        preferences.pillPosition = .bottom
+        save(PreferencesView(model: model, preferences: preferences).frame(width: 760, height: 1650).background(Color.canvas).preferredColorScheme(.light), to: directory.appendingPathComponent("preferences-learned.png"))
+        preferences.learned = LearnedWords()
+        model.fixNote = ""
         model.phase = .listening
         model.level = 0.65
         model.elapsed = 8

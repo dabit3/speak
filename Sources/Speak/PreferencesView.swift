@@ -115,8 +115,29 @@ struct PreferencesView: View {
                         .onChange(of: preferences.vocabulary) { _, value in
                             if value.count > 4000 { preferences.vocabulary = String(value.prefix(4000)) }
                         }
+                    Divider()
+                    toggleRow("Learn from my corrections", detail: "After Speak pastes, it watches that text field for up to a minute. When you fix a word it typed, Speak remembers the spelling. The text you edit stays in memory, and only the learned word is saved. You can also choose “Fix last dictation” from the menu bar.", isOn: $preferences.learnFromCorrections)
+                    if !preferences.learned.isEmpty {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 9) {
+                            Text("Learned words").font(.system(size: 12, weight: .medium))
+                            ForEach(preferences.learned.words, id: \.term) { word in
+                                HStack(spacing: 8) {
+                                    Text(word.term).font(.system(size: 12))
+                                    if !word.replaces.isEmpty {
+                                        Text("replaces \(word.replaces.joined(separator: ", "))").font(.system(size: 10)).foregroundStyle(Color.muted).lineLimit(1)
+                                    }
+                                    Spacer()
+                                    Button { preferences.forget(word) } label: {
+                                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.muted)
+                                    }
+                                    .buttonStyle(.plain).help("Forget \(word.term)").accessibilityLabel("Forget \(word.term)")
+                                }
+                            }
+                        }
+                    }
                 }
-                Text("Audio goes directly to OpenAI. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI. Only the last original and corrected transcripts stay in memory. No recordings or transcript history are saved to disk. OpenAI’s API data policies and separate API billing apply.")
+                Text("Audio goes directly to OpenAI. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI. Learned words are saved on this Mac and sent with your vocabulary. Only the last original and corrected transcripts stay in memory. No recordings or transcript history are saved to disk. OpenAI’s API data policies and separate API billing apply.")
                     .font(.system(size: 10)).lineSpacing(4).foregroundStyle(Color.muted)
             }
             .padding(.horizontal, 44)

@@ -26,6 +26,8 @@ final class Preferences: ObservableObject {
     @Published var pillPosition: PillPosition { didSet { defaults.set(pillPosition.rawValue, forKey: "pillPosition") } }
     @Published var smartCorrectionEnabled: Bool { didSet { defaults.set(smartCorrectionEnabled, forKey: "smartCorrectionEnabled") } }
     @Published var showLiveTranscript: Bool { didSet { defaults.set(showLiveTranscript, forKey: "showLiveTranscript") } }
+    @Published var learnFromCorrections: Bool { didSet { defaults.set(learnFromCorrections, forKey: "learnFromCorrections") } }
+    @Published var learned: LearnedWords { didSet { defaults.set(try? JSONEncoder().encode(learned), forKey: "learnedWords") } }
     @Published var hasAPIKey = false
     private let defaults: UserDefaults
 
@@ -39,13 +41,17 @@ final class Preferences: ObservableObject {
         pillPosition = PillPosition(rawValue: defaults.string(forKey: "pillPosition") ?? "") ?? .bottom
         smartCorrectionEnabled = defaults.object(forKey: "smartCorrectionEnabled") as? Bool ?? true
         showLiveTranscript = defaults.object(forKey: "showLiveTranscript") as? Bool ?? true
+        learnFromCorrections = defaults.object(forKey: "learnFromCorrections") as? Bool ?? false
+        learned = defaults.data(forKey: "learnedWords").flatMap { try? JSONDecoder().decode(LearnedWords.self, from: $0) } ?? LearnedWords()
         hasAPIKey = checkKeychain && KeychainStore.hasKey
     }
 
     var shortcutLabel: String { shortcut == "fn" ? "fn" : "⌃ ⌥" }
     var configuration: TranscriptionConfiguration {
-        .init(language: language, delay: delay, vocabulary: vocabulary)
+        .init(language: language, delay: delay, vocabulary: ([vocabulary] + learned.hints).joined(separator: ", "))
     }
+
+    func forget(_ word: LearnedWord) { learned.remove(word) }
 
     func saveKey(_ key: String) throws {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -40,24 +40,41 @@ struct PillView: View {
     @ViewBuilder private func bubble(at position: PillPosition) -> some View {
         let vertical = position != .bottom
         if model.phase == .failure {
-            note(model.message, size: 12, lines: vertical ? 6 : 4, at: position)
+            note(at: position) { noteText(model.message, size: 12, lines: vertical ? 6 : 4, vertical: vertical) }
         } else if model.showsLiveTranscript {
-            note(model.partial, size: 13, lines: vertical ? 7 : 3, at: position)
+            note(at: position) { noteText(model.partial, size: 13, lines: vertical ? 7 : 3, vertical: vertical) }
                 .accessibilityLabel("Live transcript: \(model.partial)")
         } else if vertical && model.phase == .success {
-            note(model.message, size: 12, lines: 2, at: position)
+            note(at: position) {
+                VStack(alignment: .leading, spacing: 7) {
+                    noteText(model.message, size: 12, lines: 2, vertical: true)
+                    if model.showsLearningUndo { undoButton }
+                }
+            }
         }
     }
 
-    private func note(_ text: String, size: CGFloat, lines: Int, at position: PillPosition) -> some View {
+    private func note<Content: View>(at position: PillPosition, @ViewBuilder content: () -> Content) -> some View {
         let vertical = position != .bottom
-        return Text(text)
-            .font(.system(size: size)).foregroundStyle(.white.opacity(0.9))
-            .multilineTextAlignment(vertical ? .leading : .center).lineLimit(lines)
+        return content()
             .padding(.horizontal, 17).padding(.vertical, 11)
             .background(Color(white: 0.13).opacity(0.96), in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(.white.opacity(vertical ? 0.08 : 0)))
             .frame(maxWidth: vertical ? 300 : 370, alignment: position == .left ? .leading : position == .right ? .trailing : .center)
+    }
+
+    private func noteText(_ text: String, size: CGFloat, lines: Int, vertical: Bool) -> some View {
+        Text(text)
+            .font(.system(size: size)).foregroundStyle(.white.opacity(0.9))
+            .multilineTextAlignment(vertical ? .leading : .center).lineLimit(lines)
+    }
+
+    private var undoButton: some View {
+        Button { model.undoLearning() } label: {
+            Text("Undo").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(red: 1, green: 0.73, blue: 0.48))
+        }
+        .buttonStyle(.plain)
+        .help("Forget what Speak just learned")
     }
 
     @ViewBuilder private func meter(vertical: Bool) -> some View {
@@ -91,6 +108,7 @@ struct PillView: View {
                 Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(red: 0.72, green: 0.82, blue: 0.65))
                     .frame(height: vertical ? 22 : nil)
                 if !vertical { Text(model.message).font(.system(size: 11)).foregroundStyle(.white.opacity(0.9)) }
+                if !vertical && model.showsLearningUndo { undoButton }
             } else if model.phase == .failure {
                 Button { model.dismiss() } label: {
                     if vertical {

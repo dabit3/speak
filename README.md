@@ -47,9 +47,13 @@ Speak formats English dictation on your Mac before it pastes. Say “comma,” �
 
 Smart correction is on by default and uses GPT-4.1 nano. It fixes likely misheard words and punctuation. It also applies corrections you make while speaking. For example, “Let’s meet at 3, no wait, 4” becomes “Let’s meet at 4.” It allows up to 350 ms of extra wait, or 1 second when you correct yourself. After that, it falls back to the formatted text. Choose “Copy original dictation” from the menu bar to recover the unedited transcript. Turn off “Smart correction” in Preferences to skip AI edits. Add names and product terms under “Your vocabulary” to help Speak hear and spell them correctly.
 
+### Teach Speak a spelling
+
+If Speak gets a name or term wrong, choose “Fix last dictation” from the menu bar, correct the word, and click Learn. Speak remembers the spelling and uses it the next time you say that word. If the wrong spelling isn’t a real word, such as “Superbase” for “Supabase,” Speak also replaces it automatically. Turn on “Learn from my corrections” in Preferences to learn from fixes you make in other apps right after Speak pastes. Learned words appear in Preferences, where you can remove them.
+
 ### Privacy
 
-Speak stores your API key in macOS Keychain. Audio streams directly to OpenAI during dictation. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI, with extra text API charges. Speak keeps only the last original and corrected transcripts in memory, with no recordings or history saved to disk.
+Speak stores your API key in macOS Keychain. Audio streams directly to OpenAI during dictation. Smart correction also sends transcript text, vocabulary, and the active app name to OpenAI, with extra text API charges. Speak keeps only the last original and corrected transcripts in memory, with no recordings or history saved to disk. Learned words are saved on your Mac and sent with your vocabulary. When “Learn from my corrections” is on, Speak reads the text field it pasted into for up to a minute and keeps that text in memory only.
 
 OpenAI’s API data policies still apply.
 

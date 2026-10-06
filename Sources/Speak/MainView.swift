@@ -78,6 +78,7 @@ struct DashboardView: View {
     @ObservedObject var model: AppModel
     @State private var practiceText = ""
     @FocusState private var practiceFocused: Bool
+    @FocusState private var fixFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -167,23 +168,51 @@ struct DashboardView: View {
     private var transcriptCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(model.lastTranscript.isEmpty ? "A SPACE TO TRY IT" : "YOUR LAST DICTATION")
+                Text(model.lastTranscript.isEmpty ? "A SPACE TO TRY IT" : model.fixingText == nil ? "YOUR LAST DICTATION" : "FIX A WORD IN YOUR LAST DICTATION")
                     .font(.system(size: 9, weight: .medium)).tracking(1.3).foregroundStyle(Color.muted)
                 Spacer()
-                if let latency = model.lastLatency {
-                    Text("\(latency) ms to final text").font(.system(size: 10)).foregroundStyle(Color.muted)
-                }
-                if !model.lastTranscript.isEmpty {
-                    Button { model.copyLast() } label: { Image(systemName: "doc.on.doc") }
-                        .buttonStyle(.plain).help("Copy last dictation")
+                if model.fixingText == nil {
+                    if let latency = model.lastLatency {
+                        Text("\(latency) ms to final text").font(.system(size: 10)).foregroundStyle(Color.muted)
+                    }
+                    if !model.lastTranscript.isEmpty {
+                        Button { model.beginFixingLastDictation() } label: { Image(systemName: "pencil") }
+                            .buttonStyle(.plain).help("Fix a word so Speak learns its spelling")
+                        Button { model.copyLast() } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.plain).help("Copy last dictation")
+                    }
                 }
             }
-            TextField("Click here, hold \(model.preferences.shortcutLabel), and say something…", text: $practiceText, axis: .vertical)
-                .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...3)
-                .focused($practiceFocused)
-                .onChange(of: model.lastTranscript) { _, text in
-                    if !practiceFocused { practiceText = text }
+            if model.fixingText != nil {
+                TextField("Correct the words Speak got wrong", text: Binding(get: { model.fixingText ?? "" }, set: { model.fixingText = $0 }), axis: .vertical)
+                    .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...3)
+                    .focused($fixFocused)
+                    .onAppear { fixFocused = true }
+                    .onSubmit { model.saveFix() }
+                HStack(spacing: 8) {
+                    Text("Speak learns the names and terms you respell.").font(.system(size: 10)).foregroundStyle(Color.muted)
+                    Spacer()
+                    Button("Cancel") { model.cancelFixing() }.buttonStyle(SubtleButton())
+                    Button("Learn") { model.saveFix() }.buttonStyle(SubtleButton())
                 }
+            } else {
+                TextField("Click here, hold \(model.preferences.shortcutLabel), and say something…", text: $practiceText, axis: .vertical)
+                    .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...3)
+                    .focused($practiceFocused)
+                if !model.fixNote.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle").foregroundStyle(Color.accent)
+                        Text(model.fixNote)
+                        if model.canUndoLearning && model.fixNote == model.learnedMessage {
+                            Button("Undo") { model.undoLearning() }.buttonStyle(.plain).fontWeight(.medium).foregroundStyle(Color.accent)
+                        }
+                    }
+                    .font(.system(size: 11)).foregroundStyle(Color.muted)
+                }
+            }
+        }
+        .onChange(of: model.lastTranscript) { _, text in
+            if !practiceFocused { practiceText = text }
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)

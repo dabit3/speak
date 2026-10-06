@@ -16,6 +16,8 @@ final class AppModel: ObservableObject {
     let insertion: TextInsertion
     private let captureTarget: () -> InsertionTarget?
     private let transientErrorDuration: Duration
+    private let isKnownWord: (String) -> Bool
+    private let editableField: (InsertionTarget) -> (any EditableField)?
     @Published var phase: Phase = .idle
     @Published var partial = ""
     @Published var lastTranscript = ""
@@ -29,6 +31,9 @@ final class AppModel: ObservableObject {
     @Published var accessibilityGranted = false
     @Published var shortcutAvailable = false
     @Published var selectedTab = 0
+    @Published var fixingText: String?
+    @Published var fixNote = ""
+    @Published private(set) var learnedMessage = ""
     var showWindow: (() -> Void)?
     private var capture: AudioCapture?
     private var transcriber: RealtimeTranscriber?
@@ -42,13 +47,18 @@ final class AppModel: ObservableObject {
     private var startedAt = Date()
     private var releasedAt: Date?
     private var target: InsertionTarget?
+    private(set) var watcher: EditWatcher?
+    private var undoSnapshot: LearnedWords?
+    private var fixingOriginal = ""
 
     init(
         preferences: Preferences? = nil,
         insertion: TextInsertion? = nil,
         captureTarget: (() -> InsertionTarget?)? = nil,
         correction: SmartCorrection? = nil,
-        transientErrorDuration: Duration = .milliseconds(2500)
+        transientErrorDuration: Duration = .milliseconds(2500),
+        isKnownWord: ((String) -> Bool)? = nil,
+        editableField: ((InsertionTarget) -> (any EditableField)?)? = nil
     ) {
         let preferences = preferences ?? Preferences()
         self.preferences = preferences
@@ -56,6 +66,11 @@ final class AppModel: ObservableObject {
         self.captureTarget = captureTarget ?? InsertionTarget.capture
         self.correction = correction
         self.transientErrorDuration = transientErrorDuration
+        self.isKnownWord = isKnownWord ?? { word in Spelling.isKnown(word, language: preferences.language) }
+        self.editableField = editableField ?? { target in
+            guard target.processID != ProcessInfo.processInfo.processIdentifier, let element = target.element else { return nil }
+            return AccessibilityField(element: element, processID: target.processID)
+        }
         shortcut.isActive = { [weak self] in self?.phase.isBusy ?? false }
         shortcut.onCancel = { [weak self] in self?.cancel() }
         shortcut.onPaste = { [weak self] in self?.pasteLast() }
@@ -80,9 +95,17 @@ final class AppModel: ObservableObject {
                 self?.correction = nil
             }
         }.store(in: &subscriptions)
+        preferences.$learnFromCorrections.sink { [weak self] enabled in
+            if !enabled {
+                self?.watcher?.cancel()
+                self?.watcher = nil
+            }
+        }.store(in: &subscriptions)
         preferences.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
 
+    var canUndoLearning: Bool { undoSnapshot != nil && !learnedMessage.isEmpty }
+    var showsLearningUndo: Bool { phase == .success && canUndoLearning && message == learnedMessage }
     var showsLiveTranscript: Bool { preferences.showLiveTranscript && phase.isBusy && !partial.isEmpty }
     var pillHeight: CGFloat { phase == .failure || showsLiveTranscript ? 190 : 70 }
     var ready: Bool { preferences.hasAPIKey && microphoneGranted && accessibilityGranted && shortcutAvailable }
@@ -170,6 +193,9 @@ final class AppModel: ObservableObject {
         releasedAt = nil
         startedAt = Date()
         phase = .connecting
+        watcher?.finish()
+        watcher = nil
+        fixNote = ""
         do {
             let key = try KeychainStore.read()
             let capture = AudioCapture()
@@ -224,7 +250,7 @@ final class AppModel: ObservableObject {
 
     func receivePartial(_ text: String) {
         guard phase.isBusy else { return }
-        let formatted = DictationFormatter.format(text, language: preferences.language)
+        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language))
         partial = formatted
         if preferences.smartCorrectionEnabled { correction?.preview(formatted) }
     }
@@ -232,7 +258,7 @@ final class AppModel: ObservableObject {
     func processTranscript(_ text: String) async {
         guard phase == .finishing else { return }
         let id = takeID
-        let formatted = DictationFormatter.format(text, language: preferences.language)
+        let formatted = preferences.learned.apply(to: DictationFormatter.format(text, language: preferences.language))
         guard !formatted.isEmpty else {
             fail(DictationError.noSpeech)
             return
@@ -299,21 +325,82 @@ final class AppModel: ObservableObject {
 
     func pasteLast() {
         guard !lastTranscript.isEmpty, !phase.isBusy else { return }
+        watcher?.finish()
+        watcher = nil
         let target = captureTarget()
         guard target?.isSecure != true else { return }
         let result = insertion.insert(lastTranscript, into: target)
         message = result == .pasted ? "Sent to \(target?.name ?? "your app")" : "Copied · press ⌘V to paste"
         phase = .success
         dismissLater()
+        if result == .pasted { watchForCorrections(of: lastTranscript, in: target) }
     }
 
     func dismiss() { if !phase.isBusy { phase = .idle; message = "" } }
 
     func shutdown() {
         cancel()
+        watcher?.cancel()
+        watcher = nil
         shortcut.stop()
         permissionTimer?.invalidate()
         insertion.restoreClipboard()
+    }
+
+    func beginFixingLastDictation() {
+        guard !lastTranscript.isEmpty, !phase.isBusy else { return }
+        fixNote = ""
+        fixingOriginal = lastTranscript
+        fixingText = lastTranscript
+    }
+
+    func cancelFixing() { fixingText = nil }
+
+    func saveFix() {
+        guard let edited = fixingText?.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+        fixingText = nil
+        guard !edited.isEmpty, edited != fixingOriginal else { return }
+        let learned = learn(from: fixingOriginal, to: edited, announce: false)
+        if lastTranscript == fixingOriginal { lastTranscript = edited }
+        fixNote = learned.isEmpty ? "Saved. There were no new names or terms to learn." : learnedMessage
+    }
+
+    @discardableResult
+    func learn(from original: String, to edited: String, announce: Bool) -> [LearnedWord] {
+        let fixes = CorrectionLearner.fixes(from: original, to: edited, isKnownWord: isKnownWord)
+        let before = preferences.learned
+        preferences.learned.learn(fixes)
+        guard preferences.learned != before else { return [] }
+        undoSnapshot = before
+        var terms: [String] = []
+        for fix in fixes where !terms.contains(fix.term) { terms.append(fix.term) }
+        learnedMessage = "Learned " + terms.prefix(2).map { "“\($0)”" }.joined(separator: ", ") + (terms.count > 2 ? " and \(terms.count - 2) more" : "")
+        if announce, phase == .idle || phase == .success {
+            message = learnedMessage
+            phase = .success
+            dismissLater(after: .seconds(5))
+        }
+        return fixes
+    }
+
+    func undoLearning() {
+        guard let undoSnapshot else { return }
+        preferences.learned = undoSnapshot
+        self.undoSnapshot = nil
+        if phase == .success, message == learnedMessage { dismiss() }
+        if fixNote == learnedMessage { fixNote = "" }
+        learnedMessage = ""
+    }
+
+    private func watchForCorrections(of text: String, in target: InsertionTarget?) {
+        watcher?.cancel()
+        watcher = nil
+        guard preferences.learnFromCorrections, let target, !target.isSecure, let field = editableField(target) else { return }
+        let watcher = EditWatcher(pasted: text, field: field, at: ProcessInfo.processInfo.systemUptime) { [weak self] edited in
+            self?.learn(from: text, to: edited, announce: true)
+        }
+        self.watcher = watcher
+        watcher.start()
     }
 
     func complete(_ text: String, original: String? = nil) {
@@ -330,6 +417,7 @@ final class AppModel: ObservableObject {
         message = result == .pasted ? "Sent to \(target?.name ?? "your app")" : "Copied · press ⌘V to paste"
         phase = .success
         dismissLater()
+        if result == .pasted { watchForCorrections(of: text, in: target) }
     }
 
     func fail(_ error: Error) {

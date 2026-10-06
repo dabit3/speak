@@ -1,4 +1,5 @@
 import XCTest
+import SpeakCore
 @testable import Speak
 
 final class PreferencesTests: XCTestCase {
@@ -23,6 +24,23 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(restored.showLiveTranscript)
         XCTAssertFalse(restored.smartCorrectionEnabled)
         XCTAssertTrue(restored.showPill)
+    }
+
+    @MainActor func testLearningFromCorrectionsIsOffByDefaultAndLearnedWordsPersist() async {
+        let suite = "SpeakPreferencesTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = Preferences(defaults: defaults, checkKeychain: false)
+        XCTAssertFalse(preferences.learnFromCorrections)
+        XCTAssertTrue(preferences.learned.isEmpty)
+        preferences.learnFromCorrections = true
+        preferences.learned.learn([LearnedWord(term: "Supabase", replaces: ["Superbase"]), LearnedWord(term: "users", replaces: ["reviewsers"], isHint: false)])
+        let restored = Preferences(defaults: defaults, checkKeychain: false)
+        XCTAssertTrue(restored.learnFromCorrections)
+        XCTAssertEqual(restored.learned, preferences.learned)
+        XCTAssertEqual(restored.configuration.keywords, ["Supabase"])
+        restored.forget(LearnedWord(term: "Supabase"))
+        XCTAssertEqual(Preferences(defaults: defaults, checkKeychain: false).learned.words.map(\.term), ["users"])
     }
 
     @MainActor func testPillPositionDefaultsToBottomAndPersists() async {
